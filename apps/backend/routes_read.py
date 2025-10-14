@@ -112,3 +112,8 @@ def get_filesystem_item(item_id):
     except Exception as e:
         logger.error("[ERROR] Error fetching filesystem item %s: %s", item_id, str(e))
         return jsonify({"error": "Internal server error"}), 500
+
+
+@read_bp.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy"}), 200

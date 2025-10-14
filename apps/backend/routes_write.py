@@ -68,3 +68,8 @@ def create_filesystem_item():
         db.session.rollback()
         logger.error("[ERROR] Error creating filesystem item: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
+
+
+@write_bp.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
