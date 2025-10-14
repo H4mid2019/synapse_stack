@@ -13,14 +13,16 @@ class TestFileSystemAPI:
         response = client.get("/api/filesystem")
         assert response.status_code == 200
         response_data = json.loads(response.data)
-        assert isinstance(response_data, list)
+        assert "items" in response_data
+        assert isinstance(response_data["items"], list)
 
     def test_get_root_items_with_data(self, client, sample_item):  # noqa: ARG002
         response = client.get("/api/filesystem")
         assert response.status_code == 200
         response_data = json.loads(response.data)
-        assert len(response_data) >= 1
-        assert any(item["name"] == "Test Folder" for item in response_data)
+        assert "items" in response_data
+        assert len(response_data["items"]) >= 1
+        assert any(item["name"] == "Test Folder" for item in response_data["items"])
 
     def test_get_item_by_id(self, client, sample_item):
         response = client.get(f"/api/filesystem/{sample_item.id}")
@@ -36,17 +38,10 @@ class TestFileSystemAPI:
         response_data = json.loads(response.data)
         assert "error" in response_data
 
-    def test_create_folder(self, client, sample_user):
-        data = {
-            "name": "New Folder",
-            "type": "folder",
-            "parent_id": None
-        }
+    def test_create_folder(self, client):
+        data = {"name": "New Folder", "type": "folder", "parent_id": None}
         response = client.post(
-            "/api/filesystem",
-            data=json.dumps(data),
-            content_type="application/json",
-            headers={"X-Test-User-Id": str(sample_user.id)}
+            "/api/filesystem", data=json.dumps(data), content_type="application/json"
         )
 
         assert response.status_code == 201
@@ -55,13 +50,10 @@ class TestFileSystemAPI:
         assert response_data["type"] == "folder"
         assert "id" in response_data
 
-    def test_create_item_missing_name(self, client, sample_user):
+    def test_create_item_missing_name(self, client):
         data = {"type": "folder"}
         response = client.post(
-            "/api/filesystem",
-            data=json.dumps(data),
-            content_type="application/json",
-            headers={"X-Test-User-Id": str(sample_user.id)}
+            "/api/filesystem", data=json.dumps(data), content_type="application/json"
         )
 
         assert response.status_code == 400
@@ -73,7 +65,7 @@ class TestFileSystemAPI:
         response = client.put(
             f"/api/filesystem/{sample_item.id}",
             data=json.dumps(data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         assert response.status_code == 200
@@ -85,7 +77,7 @@ class TestFileSystemAPI:
         response = client.put(
             "/api/filesystem/999999",
             data=json.dumps(data),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         assert response.status_code == 404
