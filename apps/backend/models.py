@@ -34,7 +34,7 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
+            "id": str(self.id),  # Convert to string for JavaScript compatibility
             "auth0_id": self.auth0_id,
             "email": self.email,
             "name": self.name,
@@ -87,11 +87,11 @@ class FileSystemItem(db.Model):
 
     def to_dict(self, include_owner=False):
         data = {
-            "id": self.id,
+            "id": str(self.id),  # Convert to string for JavaScript compatibility
             "name": self.name,
             "type": self.type,
-            "parent_id": self.parent_id,
-            "owner_id": self.owner_id,
+            "parent_id": str(self.parent_id) if self.parent_id else None,
+            "owner_id": str(self.owner_id),
             "size": self.size,
             "mime_type": self.mime_type,
             "path": self.path,
@@ -102,7 +102,7 @@ class FileSystemItem(db.Model):
 
         if include_owner and self.owner:
             data["owner"] = {
-                "id": self.owner.id,
+                "id": str(self.owner.id),
                 "email": self.owner.email,
                 "name": self.owner.name,
             }
@@ -138,12 +138,12 @@ class FilePermission(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "item_id": self.item_id,
-            "user_id": self.user_id,
+            "id": str(self.id),
+            "item_id": str(self.item_id),
+            "user_id": str(self.user_id),
             "permission": self.permission,
             "granted_at": self.granted_at.isoformat() if self.granted_at else None,
-            "granted_by": self.granted_by,
+            "granted_by": str(self.granted_by) if self.granted_by else None,
         }
 
     def __repr__(self):
