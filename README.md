@@ -312,11 +312,39 @@ pytest tests/ -v
 ```
 
 **E2E Tests (Playwright):**
+
+For local E2E testing, you need both backend and frontend running in test mode:
+
 ```bash
+# Windows - Terminal 1: Start backend in test mode
+.\start-backend-test.bat
+
+# Windows - Terminal 2: Start frontend in test mode  
+.\start-frontend-test.bat
+
+# Terminal 3: Run E2E tests
 npm run test:e2e           # Headless
 npm run test:e2e:ui        # Interactive UI
 npm run test:e2e:headed    # See browser
 ```
+
+```bash
+# Mac/Linux - Terminal 1: Start backend in test mode
+TEST_MODE=true cd apps/backend && python start_local.py
+
+# Mac/Linux - Terminal 2: Start frontend in test mode
+VITE_TEST_MODE=true cd apps/frontend && npm run dev
+
+# Terminal 3: Run E2E tests
+npm run test:e2e           # Headless
+npm run test:e2e:ui        # Interactive UI
+npm run test:e2e:headed    # See browser
+```
+
+**Prerequisites for local E2E tests:**
+- PostgreSQL running on localhost:5432
+- Database `flask_react_db` created
+- All dependencies installed (`npm install` in root)
 
 **Test Mode (Bypass Auth):**
 
