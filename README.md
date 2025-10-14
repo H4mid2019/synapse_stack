@@ -395,9 +395,26 @@ See `docs_local/COCKROACHDB_SETUP.md` for details.
 
 **Docker Deployment:**
 
+**Option 1: Build from source**
 ```bash
 docker-compose up --build -d
 ```
+
+**Option 2: Use pre-built images from Docker Hub**
+```bash
+# Pull latest images
+docker pull hamid2019/flask-react-backend:main
+docker pull hamid2019/flask-react-frontend:main
+
+# Run with docker-compose (update image names in docker-compose.yml)
+docker-compose up -d
+```
+
+**Published Images:**
+- Backend: `hamid2019/flask-react-backend:main`
+- Frontend: `hamid2019/flask-react-frontend:main`
+
+Images are automatically built and pushed to Docker Hub when code is pushed to the main branch.
 
 Services:
 - Frontend: Port 3000
