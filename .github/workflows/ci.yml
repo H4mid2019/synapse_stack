@@ -177,25 +177,24 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           SECRET_KEY: test-secret-key
-          TEST_MODE: 'true'
         run: |
           # Start read service instance 1
-          PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
+          TEST_MODE=true PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
           echo $! > /tmp/read1.pid
           sleep 2
           
           # Start read service instance 2
-          PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
+          TEST_MODE=true PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
           echo $! > /tmp/read2.pid
           sleep 2
           
           # Start write service
-          PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
+          TEST_MODE=true PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
           echo $! > /tmp/write.pid
           sleep 2
           
           # Start operations service
-          PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
+          TEST_MODE=true PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
           echo $! > /tmp/operations.pid
           sleep 3
           
