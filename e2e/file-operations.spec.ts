@@ -11,6 +11,18 @@ test.describe('File Operations', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
 
+    // Debug: Take screenshot and log page content
+    await page.screenshot({ path: 'test-results/debug-page-load.png', fullPage: true });
+    const bodyText = await page.locator('body').textContent();
+    console.log('Page body text:', bodyText);
+    
+    // Check if there's an error message
+    const errorElement = page.locator('.text-red-800, [class*="error"]');
+    if (await errorElement.count() > 0) {
+      const errorText = await errorElement.first().textContent();
+      console.log('Error found on page:', errorText);
+    }
+
     const timestamp = Date.now();
     const filename = `test-upload-${timestamp}.txt`;
     const testContent = 'This is a test file for Playwright upload testing.';
