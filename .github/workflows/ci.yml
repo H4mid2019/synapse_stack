@@ -298,7 +298,6 @@ jobs:
         with:
           images: ${{ secrets.DOCKER_USERNAME }}/flask-react-backend
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
@@ -309,7 +308,6 @@ jobs:
         with:
           images: ${{ secrets.DOCKER_USERNAME }}/flask-react-frontend
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
