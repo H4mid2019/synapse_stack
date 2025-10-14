@@ -301,6 +301,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
       
       - name: Extract metadata for frontend
         id: meta_frontend
@@ -311,6 +312,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
       
       - name: Build and push backend image
         uses: docker/build-push-action@v5
