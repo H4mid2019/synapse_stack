@@ -30,7 +30,7 @@ class TestFileSystemAPI:
         response_data = json.loads(response.data)
         assert response_data["name"] == "Test Folder"
         assert response_data["type"] == "folder"
-        assert response_data["id"] == sample_item.id
+        assert response_data["id"] == str(sample_item.id)  # ID returned as string now
 
     def test_get_item_not_found(self, client):
         response = client.get("/api/filesystem/999999")
