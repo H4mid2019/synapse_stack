@@ -6,6 +6,44 @@ import { tmpdir } from 'os';
 test.describe.configure({ mode: 'serial' });
 
 test.describe('File Operations', () => {
+  test.beforeEach(async ({ page }) => {
+    // Capture console messages
+    page.on('console', msg => {
+      console.log(`[Browser Console ${msg.type()}]:`, msg.text());
+    });
+
+    // Capture network requests
+    page.on('request', request => {
+      console.log(`[Request] ${request.method()} ${request.url()}`);
+    });
+
+    page.on('response', async response => {
+      const url = response.url();
+      const status = response.status();
+      console.log(`[Response] ${status} ${url}`);
+      
+      // Log API responses
+      if (url.includes('/api/')) {
+        try {
+          const body = await response.text();
+          console.log(`[Response Body] ${url}:`, body.substring(0, 500));
+        } catch (e) {
+          console.log(`[Response Body] ${url}: Could not read body`);
+        }
+      }
+    });
+
+    // Capture page errors
+    page.on('pageerror', error => {
+      console.log(`[Page Error]:`, error.message);
+    });
+
+    // Capture failed requests
+    page.on('requestfailed', request => {
+      console.log(`[Request Failed] ${request.url()}:`, request.failure()?.errorText);
+    });
+  });
+
   test('should upload a file', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');

@@ -15,6 +15,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
+    
+    // Capture console and network for debugging
+    video: process.env.CI ? 'retain-on-failure' : 'off',
+    screenshot: 'only-on-failure',
   },
 
   projects: [
@@ -24,28 +28,16 @@ export default defineConfig({
     },
   ],
 
-  webServer: [
-    {
-      command: 'cd apps/backend && python start_local.py',
-      url: 'http://localhost:5000/api/health',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        TEST_MODE: 'true',
-      },
+  // Only start frontend - backend already running in CI
+  webServer: {
+    command: 'npm run dev --workspace=frontend',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      VITE_TEST_MODE: 'true',
     },
-    {
-      command: 'npm run dev --workspace=frontend',
-      url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        VITE_TEST_MODE: 'true',
-      },
-    },
-  ],
+  },
 });
