@@ -2,7 +2,7 @@ import pytest
 
 from app_factory import create_app
 from database import db
-from models import Item
+from models import FileSystemItem, User
 
 
 @pytest.fixture
@@ -31,9 +31,27 @@ def client(app):
 
 
 @pytest.fixture
-def sample_item(app):
+def sample_user(app):
     with app.app_context():
-        item = Item(name="Test Item", description="Test Description")
+        user = User(
+            auth0_id="test|123456",
+            email="test@example.com",
+            name="Test User"
+        )
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+
+@pytest.fixture
+def sample_item(app, sample_user):
+    with app.app_context():
+        item = FileSystemItem(
+            name="Test Folder",
+            type="folder",
+            owner_id=sample_user.id,
+            parent_id=None
+        )
         db.session.add(item)
         db.session.commit()
         return item

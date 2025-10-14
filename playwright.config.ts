@@ -26,15 +26,6 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'cd apps/backend && python main.py',
-      url: 'http://localhost:5000/api/filesystem',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      env: {
-        TEST_MODE: 'true',
-      },
-    },
-    {
       command: 'cd apps/frontend && npm run dev',
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
