@@ -24,15 +24,28 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npm run dev --workspace=frontend',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      VITE_TEST_MODE: 'true',
+  webServer: [
+    {
+      command: 'cd apps/backend && python start_local.py',
+      url: 'http://localhost:5000/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        TEST_MODE: 'true',
+      },
     },
-  },
+    {
+      command: 'npm run dev --workspace=frontend',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        VITE_TEST_MODE: 'true',
+      },
+    },
+  ],
 });

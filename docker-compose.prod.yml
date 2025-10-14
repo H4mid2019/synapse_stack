@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    
+    env_file:
+      - .env.prod
+    
+    ports:
+      - "5000:5000"
+    
+    volumes:
+      - ./uploads:/app/uploads
+    
+    restart: unless-stopped
+    
+    # Production setup: supervisor runs nginx + 4 bjoern processes
+    # Nginx listens on port 5000, load balances to:
+    #   - Read Service 1: port 6001
+    #   - Read Service 2: port 6011
+    #   - Write Service: port 6002
+    #   - Operations Service: port 6003
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    
+    env_file:
+      - .env.prod
+    
+    ports:
+      - "3000:80"
+    
+    restart: unless-stopped
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  default:
+    name: flask-react-app
