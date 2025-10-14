@@ -177,24 +177,25 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           SECRET_KEY: test-secret-key
+          FLASK_ENV: development
         run: |
           # Start read service instance 1
-          TEST_MODE=true FLASK_ENV=production PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
+          TEST_MODE=true PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
           echo $! > /tmp/read1.pid
           sleep 2
           
           # Start read service instance 2
-          TEST_MODE=true FLASK_ENV=production PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
+          TEST_MODE=true PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
           echo $! > /tmp/read2.pid
           sleep 2
           
           # Start write service
-          TEST_MODE=true FLASK_ENV=production PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
+          TEST_MODE=true PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
           echo $! > /tmp/write.pid
           sleep 2
           
           # Start operations service
-          TEST_MODE=true FLASK_ENV=production PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
+          TEST_MODE=true PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
           echo $! > /tmp/operations.pid
           sleep 3
           
@@ -209,6 +210,17 @@ jobs:
           curl -f http://localhost:6002/api/health && echo "[OK] Write service running" || echo "[ERROR] Write service failed"
           curl -f http://localhost:6003/api/health && echo "[OK] Operations service running" || echo "[ERROR] Operations service failed"
           curl -f http://localhost:5000/api/health && echo "[OK] Nginx proxy running" || echo "[ERROR] Nginx failed"
+          
+          # Exit if any service failed
+          if ! curl -f http://localhost:6001/api/health || \
+             ! curl -f http://localhost:6011/api/health || \
+             ! curl -f http://localhost:6002/api/health || \
+             ! curl -f http://localhost:6003/api/health || \
+             ! curl -f http://localhost:5000/api/health; then
+            echo "Backend services failed to start properly"
+            cat /tmp/read1.log /tmp/read2.log /tmp/write.log /tmp/operations.log
+            exit 1
+          fi
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
