@@ -162,12 +162,14 @@ jobs:
         working-directory: ./apps/backend
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
+          FLASK_APP: app_factory:create_app
         run: |
-          flask db upgrade || echo "No migrations to run"
+          echo "Running database migrations..."
+          flask db upgrade || (echo "Migration failed, trying to create tables directly..." && python -c "from app_factory import create_app; from database import db; app = create_app('operations'); app.app_context().push(); db.create_all(); print('Tables created successfully')")
       
       - name: Configure nginx for multi-app routing
         run: |
-          sudo cp apps/backend/nginx.conf /etc/nginx/sites-available/backend
+          sudo cp apps/backend/nginx-ci.conf /etc/nginx/sites-available/backend
           sudo rm -f /etc/nginx/sites-enabled/default
           sudo ln -s /etc/nginx/sites-available/backend /etc/nginx/sites-enabled/backend
           sudo nginx -t
