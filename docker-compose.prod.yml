@@ -10,10 +10,12 @@ services:
       - .env.prod
     
     ports:
-      - "5000:5000"
+      - "5050:5000"
     
     volumes:
       - ./uploads:/app/uploads
+      # Uncomment if using GCP Cloud Storage with service account key
+      # - ./gcp-credentials.json:/app/gcp-credentials.json:ro
     
     restart: unless-stopped
     
@@ -42,7 +44,7 @@ services:
       - .env.prod
     
     ports:
-      - "3000:80"
+      - "3030:80"
     
     restart: unless-stopped
     
