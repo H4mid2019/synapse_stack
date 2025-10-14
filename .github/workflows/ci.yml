@@ -257,27 +257,53 @@ jobs:
           retention-days: 30
 
   build-and-push:
+    name: Build and Push Docker Images
     if: github.ref == 'refs/heads/main'
     needs: [lint-and-format, test-backend, test-frontend, test-e2e]
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Login to Docker Hub
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      
+      - name: Extract metadata for backend
+        id: meta_backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/flask-react-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+      
+      - name: Extract metadata for frontend
+        id: meta_frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/flask-react-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
       
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
           context: ./apps/backend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/flask-react-backend:latest
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_backend.outputs.tags }}
+          labels: ${{ steps.meta_backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -285,7 +311,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./apps/frontend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/flask-react-frontend:latest
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta_frontend.outputs.tags }}
+          labels: ${{ steps.meta_frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
