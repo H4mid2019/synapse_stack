@@ -4,9 +4,9 @@ import pytest
 
 os.environ["TEST_MODE"] = "true"
 
-from app_factory import create_app
-from database import db
-from models import FileSystemItem, User
+from app_factory import create_app  # noqa: E402
+from database import db  # noqa: E402
+from models import FileSystemItem, User  # noqa: E402
 
 
 @pytest.fixture(scope="function")
