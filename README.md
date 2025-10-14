@@ -2,6 +2,10 @@
 
 Full-stack file management system with Flask backend and React frontend in a Turborepo monorepo.
 
+## Online example app
+
+[synapse-stack.darabi.website](https://synapse-stack.darabi.website/)
+
 ## Quick Navigation
 
 - [Quick Start](#quick-start) - Get running in 5 minutes
