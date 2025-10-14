@@ -1,4 +1,5 @@
 """List all routes across the multi-app architecture"""
+
 import sys
 
 sys.path.insert(0, "apps/backend")
