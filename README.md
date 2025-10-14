@@ -363,6 +363,10 @@ DATABASE_URL=postgresql://user:password@localhost:5432/flask_react_db
 TEST_MODE=false                    # Set to true to bypass Auth0
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_AUDIENCE=your-api-identifier
+
+# Optional: Google Cloud Storage for file uploads
+GCS_BUCKET_NAME=your-bucket-name   # Leave empty to use local storage
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
 ```
 
 **Frontend (apps/frontend/.env):**
@@ -373,6 +377,26 @@ VITE_AUTH0_DOMAIN=your-tenant.auth0.com
 VITE_AUTH0_CLIENT_ID=your-client-id
 VITE_AUTH0_AUDIENCE=your-api-identifier
 ```
+
+## File Storage
+
+The app supports two storage options for uploaded files:
+
+**Local Storage (Default):**
+Files are stored in the `uploads/` folder on your server. Good for development and small deployments.
+
+**Google Cloud Storage (Optional):**
+Files are stored in a Google Cloud Storage bucket. Better for production and scaling.
+
+To use GCS:
+1. Create a Google Cloud Storage bucket
+2. Set up authentication (service account key file)
+3. Add to your environment:
+   ```bash
+   GCS_BUCKET_NAME=your-bucket-name
+   ```
+
+The app automatically detects which storage to use. If `GCS_BUCKET_NAME` is set, it uses cloud storage. Otherwise, it uses local files.
 
 ## Deployment
 
@@ -465,3 +489,5 @@ Additional docs in `docs_local/`:
 ## License
 
 MIT
+
+See [LICENSE](LICENSE) for details.
