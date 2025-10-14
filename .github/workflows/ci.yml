@@ -177,6 +177,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           SECRET_KEY: test-secret-key
+          FLASK_ENV: production
         run: |
           # Start read service instance 1
           TEST_MODE=true PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &

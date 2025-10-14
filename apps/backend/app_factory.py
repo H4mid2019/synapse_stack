@@ -90,7 +90,10 @@ def create_app(app_type="read"):
 
     db.init_app(app)
     migrate.init_app(app, db)
-    CORS(app)
+    
+    # Only enable CORS in development (production uses nginx for CORS)
+    if os.getenv("FLASK_ENV") != "production":
+        CORS(app)
 
     with app.app_context():
         try:
