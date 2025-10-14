@@ -213,13 +213,6 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       
-      - name: Verify frontend is accessible
-        run: |
-          echo "Waiting for frontend to start..."
-          timeout 30 bash -c 'until curl -f http://localhost:5173; do sleep 1; done' || echo "Frontend not accessible"
-          echo "Checking frontend response:"
-          curl -v http://localhost:5173 || echo "Frontend check failed"
-      
       - name: Run Playwright E2E tests
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
