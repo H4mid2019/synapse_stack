@@ -1,0 +1,20 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "python start_local.py",
+    "dev:single": "python main.py",
+    "test": "python -m pytest tests/ -v",
+    "lint": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120",
+    "lint:check": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120 --count --statistics",
+    "format": "python -m black . --exclude='(\\.venv|migrations|__pycache__)' && python -m isort . --skip .venv --skip migrations --skip __pycache__",
+    "format:check": "python -m black . --check --exclude='(\\.venv|migrations|__pycache__)' && python -m isort . --check --skip .venv --skip migrations --skip __pycache__",
+    "imports:fix": "python -m isort . --skip .venv --skip migrations --skip __pycache__",
+    "imports:check": "python -m isort . --check --skip .venv --skip migrations --skip __pycache__",
+    "build": "echo \"Backend build complete\""
+  },
+  "private": true,
+  "dependencies": {
+    "@auth0/auth0-react": "^2.6.0"
+  }
+}

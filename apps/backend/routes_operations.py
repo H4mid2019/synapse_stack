@@ -1,0 +1,345 @@
+import logging
+import mimetypes
+import os
+from io import BytesIO
+
+from flask import Blueprint, jsonify, request, send_file
+from google.cloud import storage
+from sqlalchemy.exc import IntegrityError
+from werkzeug.utils import secure_filename
+
+from auth import get_or_create_user, requires_auth
+from database import db
+from models import FileSystemItem, User
+
+logger = logging.getLogger(__name__)
+
+operations_bp = Blueprint("operations", __name__)
+
+# Configure upload folder (fallback for local development)
+UPLOAD_FOLDER = "uploads"
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
+
+# GCS Configuration
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+USE_GCS = GCS_BUCKET_NAME is not None
+
+# Initialize GCS client if configured
+if USE_GCS:
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(GCS_BUCKET_NAME)
+        logger.info("[OK] Google Cloud Storage initialized: %s", GCS_BUCKET_NAME)
+    except Exception as e:
+        logger.error("[ERROR] Failed to initialize GCS: %s", str(e))
+        USE_GCS = False
+        logger.info("Falling back to local file storage")
+else:
+    logger.info("Using local file storage (GCS_BUCKET_NAME not set)")
+
+
+def get_file_path(item_id):
+    """Generate file path for storing files"""
+    if USE_GCS:
+        return f"uploads/{item_id}"
+    return os.path.join(UPLOAD_FOLDER, str(item_id))
+
+
+@operations_bp.route("/filesystem/<int:item_id>", methods=["PUT"])
+@requires_auth
+def update_filesystem_item(item_id):
+    try:
+        user = get_or_create_user(db, User)
+        item = FileSystemItem.query.filter_by(id=item_id, owner_id=user.id).first()
+
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        if "name" in data:
+            existing_item = FileSystemItem.query.filter(
+                FileSystemItem.name == data["name"],
+                FileSystemItem.parent_id == item.parent_id,
+                FileSystemItem.owner_id == user.id,
+                FileSystemItem.id != item_id,
+            ).first()
+
+            if existing_item:
+                return (
+                    jsonify(
+                        {
+                            "error": "An item with this name already exists in this folder"
+                        }
+                    ),
+                    400,
+                )
+
+            item.name = data["name"]
+
+        if "parent_id" in data:
+            item.parent_id = data["parent_id"]
+
+        db.session.commit()
+
+        logger.info("Updated filesystem item: %s", item.name)
+        return jsonify(item.to_dict()), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        logger.error(
+            "[ERROR] Integrity error updating filesystem item %s: %s", item_id, str(e)
+        )
+        if "unique_name_per_location_per_owner" in str(e):
+            return (
+                jsonify(
+                    {"error": "An item with this name already exists in this folder"}
+                ),
+                409,
+            )
+        return jsonify({"error": "Database constraint violation"}), 409
+    except Exception as e:
+        db.session.rollback()
+        logger.error("[ERROR] Error updating filesystem item %s: %s", item_id, str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@operations_bp.route("/filesystem/<int:item_id>", methods=["DELETE"])
+@requires_auth
+def delete_filesystem_item(item_id):
+    try:
+        user = get_or_create_user(db, User)
+        item = FileSystemItem.query.filter_by(id=item_id, owner_id=user.id).first()
+
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        # If it's a file, delete the actual file from storage
+        if item.type == "file":
+            file_path = get_file_path(item_id)
+            if USE_GCS:
+                blob = bucket.blob(file_path)
+                if blob.exists():
+                    blob.delete()
+                    logger.info("Deleted file from GCS: %s", file_path)
+            else:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    logger.info("Deleted file from local storage: %s", file_path)
+
+        # Delete all children recursively if it's a folder
+        if item.type == "folder":
+
+            def delete_children(parent_id):
+                children = FileSystemItem.query.filter_by(parent_id=parent_id).all()
+                for child in children:
+                    if child.type == "file":
+                        file_path = get_file_path(child.id)
+                        if USE_GCS:
+                            blob = bucket.blob(file_path)
+                            if blob.exists():
+                                blob.delete()
+                        else:
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                    elif child.type == "folder":
+                        delete_children(child.id)
+                    db.session.delete(child)
+
+            delete_children(item.id)
+
+        db.session.delete(item)
+        db.session.commit()
+
+        logger.info("Deleted filesystem item: %s", item.name)
+        return jsonify({"message": "Item deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error("[ERROR] Error deleting filesystem item %s: %s", item_id, str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@operations_bp.route("/filesystem/upload", methods=["POST"])
+@requires_auth
+def upload_file():
+    try:
+        user = get_or_create_user(db, User)
+
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["file"]
+
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+
+        parent_id = request.form.get("parent_id", type=int)
+        filename = secure_filename(file.filename)
+
+        existing_item = FileSystemItem.query.filter_by(
+            name=filename, parent_id=parent_id, owner_id=user.id
+        ).first()
+
+        if existing_item:
+            return (
+                jsonify(
+                    {"error": "A file with this name already exists in this folder"}
+                ),
+                400,
+            )
+
+        file_content = file.read()
+        file_size = len(file_content)
+
+        item = FileSystemItem(
+            name=filename,
+            type="file",
+            parent_id=parent_id,
+            owner_id=user.id,
+            size=file_size,
+            mime_type=file.content_type
+            or mimetypes.guess_type(filename)[0]
+            or "application/octet-stream",
+        )
+
+        db.session.add(item)
+        db.session.flush()
+
+        file_path = get_file_path(item.id)
+
+        if USE_GCS:
+            blob = bucket.blob(file_path)
+            blob.upload_from_string(file_content, content_type=item.mime_type)
+            logger.info("Uploaded file to GCS: %s", file_path)
+        else:
+            with open(file_path, "wb") as f:
+                f.write(file_content)
+            logger.info("Uploaded file to local storage: %s", file_path)
+
+        item.path = file_path
+        db.session.commit()
+
+        logger.info("Uploaded file: %s", item.name)
+        return jsonify(item.to_dict()), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        logger.error("[ERROR] Integrity error uploading file: %s", str(e))
+        if "unique_name_per_location_per_owner" in str(e):
+            return (
+                jsonify(
+                    {"error": "A file with this name already exists in this folder"}
+                ),
+                409,
+            )
+        return jsonify({"error": "Database constraint violation"}), 409
+    except Exception as e:
+        db.session.rollback()
+        logger.error("[ERROR] Error uploading file: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@operations_bp.route("/filesystem/<int:item_id>/download", methods=["GET"])
+@requires_auth
+def download_file(item_id):
+    try:
+        user = get_or_create_user(db, User)
+        item = FileSystemItem.query.filter_by(id=item_id, owner_id=user.id).first()
+
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        if item.type != "file":
+            return jsonify({"error": "Item is not a file"}), 400
+
+        file_path = get_file_path(item_id)
+
+        if USE_GCS:
+            blob = bucket.blob(file_path)
+            if not blob.exists():
+                return jsonify({"error": "File not found in GCS"}), 404
+
+            file_data = blob.download_as_bytes()
+            return send_file(
+                BytesIO(file_data),
+                as_attachment=True,
+                download_name=item.name,
+                mimetype=item.mime_type,
+            )
+        else:
+            if not os.path.exists(file_path):
+                return jsonify({"error": "File not found on disk"}), 404
+
+            return send_file(file_path, as_attachment=True, download_name=item.name)
+
+    except Exception as e:
+        logger.error("[ERROR] Error downloading file %s: %s", item_id, str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@operations_bp.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+
+if TEST_MODE:
+
+    @operations_bp.route("/test/reset-database", methods=["POST"])
+    def reset_database():
+        try:
+            logger.info("Resetting database for tests...")
+
+            db.drop_all()
+            logger.info("Dropped all tables")
+
+            db.create_all()
+            logger.info("Created all tables")
+
+            test_user = User(
+                auth0_id="test|12345", email="test@example.com", name="Test User"
+            )
+            db.session.add(test_user)
+            db.session.commit()
+            logger.info("Created test user (ID: %d)", test_user.id)
+
+            return (
+                jsonify(
+                    {
+                        "message": "Database reset successful",
+                        "test_user_id": test_user.id,
+                    }
+                ),
+                200,
+            )
+
+        except Exception as e:
+            logger.error("[ERROR] Error resetting database: %s", str(e))
+            db.session.rollback()
+            return jsonify({"error": str(e)}), 500
+
+    @operations_bp.route("/test/cleanup-database", methods=["POST"])
+    def cleanup_database():
+        try:
+            logger.info("Cleaning up test database...")
+
+            FileSystemItem.query.delete()
+            logger.info("Deleted all filesystem items")
+
+            User.query.filter(User.auth0_id != "test|12345").delete()
+            logger.info("Deleted non-test users")
+
+            db.session.commit()
+
+            return jsonify({"message": "Database cleanup successful"}), 200
+
+        except Exception as e:
+            logger.error("[ERROR] Error cleaning database: %s", str(e))
+            db.session.rollback()
+            return jsonify({"error": str(e)}), 500
