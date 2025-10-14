@@ -4,18 +4,16 @@ services:
   backend:
     build:
       context: ./apps/backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.pypy
     
-    env_file:
-      - .env.prod
+    env_file: ".env.prod"
     
     ports:
       - "5050:5000"
     
     volumes:
       - ./uploads:/app/uploads
-      # Uncomment if using GCP Cloud Storage with service account key
-      # - ./gcp-credentials.json:/app/gcp-credentials.json:ro
+      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
     
     restart: unless-stopped
     
@@ -35,13 +33,12 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile.prod
       args:
         VITE_API_URL: ${VITE_API_URL}
     
-    env_file:
-      - .env.prod
+    env_file: ".env.prod"
     
     ports:
       - "3030:80"

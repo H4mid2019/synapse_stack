@@ -1,0 +1,35 @@
+# Build stage
+FROM node:18-alpine AS builder
+
+# Build argument for API URL
+ARG VITE_API_URL
+
+# Set working directory to monorepo root
+WORKDIR /monorepo
+
+# Copy root package files
+COPY package*.json ./
+COPY turbo.json ./
+
+# Copy frontend workspace
+COPY apps/frontend ./apps/frontend/
+
+# Install dependencies
+RUN npm ci
+
+# Build frontend with API URL
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build --workspace=frontend
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built application
+COPY --from=builder /monorepo/apps/frontend/dist /usr/share/nginx/html
+
+# Copy nginx configuration  
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
