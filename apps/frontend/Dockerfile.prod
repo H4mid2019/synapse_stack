@@ -1,8 +1,11 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Build argument for API URL
+# Build arguments for environment variables
 ARG VITE_API_URL
+ARG VITE_AUTH0_DOMAIN
+ARG VITE_AUTH0_CLIENT_ID
+ARG VITE_AUTH0_AUDIENCE
 
 # Set working directory to monorepo root
 WORKDIR /monorepo
@@ -17,8 +20,13 @@ COPY apps/frontend ./apps/frontend/
 # Install dependencies
 RUN npm ci
 
-# Build frontend with API URL
+# Set environment variables for build
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+ENV VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}
+ENV VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+
+# Build frontend with environment variables
 RUN npm run build --workspace=frontend
 
 # Production stage
