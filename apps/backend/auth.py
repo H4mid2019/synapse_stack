@@ -17,8 +17,7 @@ TEST_ALLOWED_IPS = ["127.0.0.1", "localhost", "::1"]
 
 if TEST_MODE and FLASK_ENV == "production":
     raise RuntimeError(
-        "TEST_MODE cannot be enabled in production environment. "
-        "Set FLASK_ENV=development or disable TEST_MODE."
+        "TEST_MODE cannot be enabled in production environment. " "Set FLASK_ENV=development or disable TEST_MODE."
     )
 
 
@@ -53,9 +52,7 @@ def get_token_auth_header():
             401,
         )
     elif len(parts) == 1:
-        raise AuthError(
-            {"code": "invalid_header", "description": "Token not found"}, 401
-        )
+        raise AuthError({"code": "invalid_header", "description": "Token not found"}, 401)
     elif len(parts) > 2:
         raise AuthError(
             {
@@ -77,9 +74,7 @@ def verify_decode_jwt(token):
     try:
         unverified_header = jwt.get_unverified_header(token)
     except jwt.JWTError as e:
-        raise AuthError(
-            {"code": "invalid_header", "description": f"Invalid header: {str(e)}"}, 401
-        )
+        raise AuthError({"code": "invalid_header", "description": f"Invalid header: {str(e)}"}, 401)
 
     if unverified_header.get("alg") == "HS256":
         raise AuthError(
@@ -115,9 +110,7 @@ def verify_decode_jwt(token):
             payload = jwt.decode(token, rsa_key, **decode_options)
             return payload
         except jwt.ExpiredSignatureError:
-            raise AuthError(
-                {"code": "token_expired", "description": "Token is expired"}, 401
-            )
+            raise AuthError({"code": "token_expired", "description": "Token is expired"}, 401)
         except jwt.JWTClaimsError as e:
             raise AuthError(
                 {
@@ -135,9 +128,7 @@ def verify_decode_jwt(token):
                 401,
             )
 
-    raise AuthError(
-        {"code": "invalid_header", "description": "Unable to find appropriate key"}, 401
-    )
+    raise AuthError({"code": "invalid_header", "description": "Unable to find appropriate key"}, 401)
 
 
 def requires_auth(f):

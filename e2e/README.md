@@ -18,6 +18,7 @@ npm run test:e2e:headed
 ## Test Mode
 
 When TEST_MODE is enabled:
+
 - Backend: Auth is mocked with test user (test|12345)
 - Frontend: Mock Auth0 provider returns authenticated state
 - No real Auth0 calls are made

@@ -8,15 +8,12 @@ import logging
 import os
 import sys
 
-from flask_migrate import init, upgrade
-
 from app_factory import create_app
 from database import db
+from flask_migrate import init, upgrade
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -37,9 +34,7 @@ def setup_database():
                 logger.info("✅ Database connection successful")
             except Exception as e:
                 logger.error("❌ Database connection failed: %s", str(e))
-                logger.error(
-                    "Make sure your database server is running and DATABASE_URL is correct"
-                )
+                logger.error("Make sure your database server is running and DATABASE_URL is correct")
                 return False
 
             # Check if migrations directory exists
@@ -65,9 +60,7 @@ def setup_database():
             # Verify tables exist
             logger.info("Verifying database tables...")
             result = db.session.execute(
-                db.text(
-                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-                )
+                db.text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
             )
             tables = [row[0] for row in result]
 

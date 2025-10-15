@@ -1,11 +1,10 @@
 import logging
 
-from flask import Blueprint, jsonify, request
-from sqlalchemy.exc import IntegrityError
-
 from auth import get_or_create_user, requires_auth
 from database import db
+from flask import Blueprint, jsonify, request
 from models import FileSystemItem, User
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +30,7 @@ def create_filesystem_item():
 
         if existing_item:
             return (
-                jsonify(
-                    {"error": "An item with this name already exists in this folder"}
-                ),
+                jsonify({"error": "An item with this name already exists in this folder"}),
                 400,
             )
 
@@ -58,9 +55,7 @@ def create_filesystem_item():
         logger.error("[ERROR] Integrity error creating filesystem item: %s", str(e))
         if "unique_name_per_location_per_owner" in str(e):
             return (
-                jsonify(
-                    {"error": "An item with this name already exists in this folder"}
-                ),
+                jsonify({"error": "An item with this name already exists in this folder"}),
                 409,
             )
         return jsonify({"error": "Database constraint violation"}), 409

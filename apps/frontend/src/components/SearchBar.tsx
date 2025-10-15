@@ -28,7 +28,6 @@ export const SearchBar = ({
   const onSearchResultsRef = useRef(onSearchResults);
   const onClearSearchRef = useRef(onClearSearch);
 
-  // Update refs when props change
   useEffect(() => {
     onSearchResultsRef.current = onSearchResults;
     onClearSearchRef.current = onClearSearch;
@@ -69,10 +68,8 @@ export const SearchBar = ({
         setCurrentPage(result.pagination.current_page);
         setShowResults(true);
 
-        // Notify parent component about search results
         onSearchResultsRef.current?.(result.results);
-      } catch (error) {
-        console.error('Search failed:', error);
+      } catch {
         toast.error('Search failed. Please try again.');
         setSearchResults([]);
         setShowResults(false);
@@ -83,7 +80,6 @@ export const SearchBar = ({
     [searchType, currentFolderId]
   );
 
-  // Debounced search
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -100,7 +96,6 @@ export const SearchBar = ({
     };
   }, [searchQuery, performSearch]);
 
-  // Handle clicks outside search results
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -172,7 +167,6 @@ export const SearchBar = ({
   return (
     <div className="relative" ref={resultsRef}>
       <div className="flex items-center space-x-2 mb-4">
-        {/* Search Input */}
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
@@ -222,7 +216,6 @@ export const SearchBar = ({
           )}
         </div>
 
-        {/* Type Filter */}
         <select
           value={searchType}
           onChange={(e) =>
@@ -236,7 +229,6 @@ export const SearchBar = ({
         </select>
       </div>
 
-      {/* Search Results Dropdown */}
       {showResults && searchResults.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-96 overflow-y-auto">
           <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
@@ -275,7 +267,6 @@ export const SearchBar = ({
             </div>
           ))}
 
-          {/* Load More Button */}
           {currentPage * 10 < totalResults && (
             <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
               <button
@@ -292,7 +283,6 @@ export const SearchBar = ({
         </div>
       )}
 
-      {/* Loading Indicator */}
       {isSearching && searchQuery && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 px-4 py-8">
           <div className="flex justify-center items-center">
@@ -320,7 +310,6 @@ export const SearchBar = ({
         </div>
       )}
 
-      {/* No Results */}
       {showResults &&
         searchResults.length === 0 &&
         !isSearching &&

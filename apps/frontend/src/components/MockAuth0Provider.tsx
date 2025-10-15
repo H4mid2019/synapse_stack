@@ -23,28 +23,30 @@ const MockAuth0Context = createContext<Auth0ContextValue>({
     sub: 'test|12345',
     email: 'test@example.com',
     name: 'Test User',
-    picture: 'https://via.placeholder.com/150'
+    picture: 'https://via.placeholder.com/150',
   },
   loginWithRedirect: async () => {},
   logout: () => {},
-  getAccessTokenSilently: async () => 'mock-test-token-12345'
+  getAccessTokenSilently: async () => 'mock-test-token-12345',
 });
 
 export const MockAuth0Provider = ({ children }: { children: ReactNode }) => {
   return (
-    <MockAuth0Context.Provider value={{
-      isAuthenticated: true,
-      isLoading: false,
-      user: {
-        sub: 'test|12345',
-        email: 'test@example.com',
-        name: 'Test User',
-        picture: 'https://via.placeholder.com/150'
-      },
-      loginWithRedirect: async () => {},
-      logout: () => {},
-      getAccessTokenSilently: async () => 'mock-test-token-12345'
-    }}>
+    <MockAuth0Context.Provider
+      value={{
+        isAuthenticated: true,
+        isLoading: false,
+        user: {
+          sub: 'test|12345',
+          email: 'test@example.com',
+          name: 'Test User',
+          picture: 'https://via.placeholder.com/150',
+        },
+        loginWithRedirect: async () => {},
+        logout: () => {},
+        getAccessTokenSilently: async () => 'mock-test-token-12345',
+      }}
+    >
       {children}
     </MockAuth0Context.Provider>
   );

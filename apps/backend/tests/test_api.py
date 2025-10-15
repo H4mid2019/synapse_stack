@@ -40,9 +40,7 @@ class TestFileSystemAPI:
 
     def test_create_folder(self, client):
         data = {"name": "New Folder", "type": "folder", "parent_id": None}
-        response = client.post(
-            "/api/filesystem", data=json.dumps(data), content_type="application/json"
-        )
+        response = client.post("/api/filesystem", data=json.dumps(data), content_type="application/json")
 
         assert response.status_code == 201
         response_data = json.loads(response.data)
@@ -52,9 +50,7 @@ class TestFileSystemAPI:
 
     def test_create_item_missing_name(self, client):
         data = {"type": "folder"}
-        response = client.post(
-            "/api/filesystem", data=json.dumps(data), content_type="application/json"
-        )
+        response = client.post("/api/filesystem", data=json.dumps(data), content_type="application/json")
 
         assert response.status_code == 400
         response_data = json.loads(response.data)
@@ -107,11 +103,7 @@ class TestFileSystemAPI:
         # Should find the sample item
         assert len(response_data["results"]) >= 1
         found_item = next(
-            (
-                item
-                for item in response_data["results"]
-                if item["name"] == "Test Folder"
-            ),
+            (item for item in response_data["results"] if item["name"] == "Test Folder"),
             None,
         )
         assert found_item is not None
@@ -163,11 +155,7 @@ class TestFileSystemAPI:
         response_data = json.loads(response.data)
         # Should find the "Test Folder" item even with lowercase query
         found_item = next(
-            (
-                item
-                for item in response_data["results"]
-                if item["name"] == "Test Folder"
-            ),
+            (item for item in response_data["results"] if item["name"] == "Test Folder"),
             None,
         )
         assert found_item is not None

@@ -6,11 +6,10 @@ Creates read, write, or operations app based on config
 import logging
 import os
 
+from database import db, migrate
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
-
-from database import db, migrate
 
 load_dotenv()
 
@@ -44,9 +43,7 @@ def create_app(app_type="read"):
         app_type: 'read', 'write', or 'operations'
     """
     if app_type not in APP_CONFIGS:
-        raise ValueError(
-            f"Invalid app type: {app_type}. Choose from: {', '.join(APP_CONFIGS.keys())}"
-        )
+        raise ValueError(f"Invalid app type: {app_type}. Choose from: {', '.join(APP_CONFIGS.keys())}")
 
     config = APP_CONFIGS[app_type]
 
@@ -57,14 +54,9 @@ def create_app(app_type="read"):
     # CockroachDB URI conversion
     if database_uri.startswith("cockroachdb://"):
         database_uri = database_uri.replace("cockroachdb://", "cockroachdb+psycopg2://")
-    elif (
-        "cockroachlabs.cloud" in database_uri
-        or os.getenv("USE_COCKROACHDB", "").lower() == "true"
-    ):
+    elif "cockroachlabs.cloud" in database_uri or os.getenv("USE_COCKROACHDB", "").lower() == "true":
         if database_uri.startswith("postgresql://"):
-            database_uri = database_uri.replace(
-                "postgresql://", "cockroachdb+psycopg2://"
-            )
+            database_uri = database_uri.replace("postgresql://", "cockroachdb+psycopg2://")
 
     app.config["SQLALCHEMY_DATABASE_URI"] = database_uri
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False

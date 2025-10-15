@@ -12,7 +12,14 @@ interface LayoutProps {
 }
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { isAuthenticated, isLoading, loginWithRedirect, logout, user, getAccessTokenSilently } = useAuth0();
+  const {
+    isAuthenticated,
+    isLoading,
+    loginWithRedirect,
+    logout,
+    user,
+    getAccessTokenSilently,
+  } = useAuth0();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -34,7 +41,9 @@ export const Layout = ({ children }: LayoutProps) => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Synapse Stack (File Manager)</h2>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Synapse Stack (File Manager)
+            </h2>
             <p className="mt-2 text-gray-600">Please sign in to continue</p>
           </div>
           <button
@@ -66,11 +75,15 @@ export const Layout = ({ children }: LayoutProps) => {
                       className="h-8 w-8 rounded-full"
                     />
                   )}
-                  <span className="text-sm text-gray-700">{user.name || user.email}</span>
+                  <span className="text-sm text-gray-700">
+                    {user.name || user.email}
+                  </span>
                 </div>
               )}
               <button
-                onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                onClick={() =>
+                  logout({ logoutParams: { returnTo: window.location.origin } })
+                }
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
               >
                 Logout
@@ -80,9 +93,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
       </header>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {children}
-        </div>
+        <div className="px-4 py-6 sm:px-0">{children}</div>
       </main>
     </div>
   );

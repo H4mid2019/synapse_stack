@@ -5,8 +5,9 @@ How to deploy your Flask/React app to Google Cloud Run for massive scaling.
 ## Why Cloud Run
 
 Cloud Run is perfect for this app because:
+
 - Auto-scales from 0 to thousands of instances
-- Pay only for requests (not idle time) 
+- Pay only for requests (not idle time)
 - Built-in load balancing
 - Handles traffic spikes automatically
 - No server management needed
@@ -14,6 +15,7 @@ Cloud Run is perfect for this app because:
 ## Prerequisites
 
 **1. Install Google Cloud CLI:**
+
 ```bash
 # Mac
 brew install --cask google-cloud-sdk
@@ -26,12 +28,14 @@ curl https://sdk.cloud.google.com | bash
 ```
 
 **2. Login and setup:**
+
 ```bash
 gcloud auth login
 gcloud config set project YOUR-PROJECT-ID
 ```
 
 **3. Create Google Cloud Project:**
+
 - Go to https://console.cloud.google.com
 - Create new project or use existing one
 - Enable billing (required for Cloud Run)
@@ -39,12 +43,14 @@ gcloud config set project YOUR-PROJECT-ID
 ## Quick Deployment
 
 **1. Update the deploy script:**
+
 ```bash
 # Edit deploy-cloud-run.sh
 PROJECT_ID="your-actual-project-id"  # Change this!
 ```
 
 **2. Make script executable and run:**
+
 ```bash
 chmod +x deploy-cloud-run.sh
 ./deploy-cloud-run.sh
@@ -57,6 +63,7 @@ chmod +x deploy-cloud-run.sh
 If you prefer to deploy manually:
 
 **Deploy backend services:**
+
 ```bash
 # READ service
 gcloud run deploy flask-read \
@@ -66,7 +73,7 @@ gcloud run deploy flask-read \
   --set-env-vars="SERVICE_TYPE=read" \
   --max-instances=50
 
-# WRITE service  
+# WRITE service
 gcloud run deploy flask-write \
   --image=hamid2019/flask-react-backend:latest \
   --region=us-central1 \
@@ -84,6 +91,7 @@ gcloud run deploy flask-operations \
 ```
 
 **Deploy frontend:**
+
 ```bash
 gcloud run deploy flask-frontend \
   --image=hamid2019/flask-react-frontend:latest \
@@ -97,6 +105,7 @@ gcloud run deploy flask-frontend \
 After deployment, add environment variables to each service:
 
 **For all backend services:**
+
 ```bash
 gcloud run services update flask-read \
   --region=us-central1 \
@@ -108,20 +117,25 @@ Repeat for `flask-write` and `flask-operations`.
 **CockroachDB SSL Certificate Options:**
 
 **Option 1: Use sslmode=require (Recommended)**
+
 ```bash
 # In your DATABASE_URL, add sslmode=require
 DATABASE_URL="postgresql://username:password@host:26257/database?sslmode=require"
 ```
+
 This uses the system certificate store. Works for CockroachDB Cloud.
 
 **Option 2: Embed certificate in Docker image**
+
 ```dockerfile
 # Add to your backend Dockerfile
 COPY root.crt /app/certs/root.crt
 ```
+
 Then use: `DATABASE_URL="postgresql://username:password@host:26257/database?sslmode=verify-full&sslrootcert=/app/certs/root.crt"`
 
 **Option 3: Mount certificate from Secret Manager**
+
 ```bash
 # Upload cert to Secret Manager
 gcloud secrets create cockroachdb-cert --data-file=root.crt
@@ -135,6 +149,7 @@ gcloud run services update flask-read \
 ```
 
 **For frontend service:**
+
 ```bash
 gcloud run services update flask-frontend \
   --region=us-central1 \
@@ -151,11 +166,12 @@ Cloud Run gives you separate URLs for each service, but you need one URL that ro
 2. Create HTTP(S) Load Balancer
 3. Configure backend services:
    - GET requests → flask-read service
-   - POST requests → flask-write service  
+   - POST requests → flask-write service
    - PUT/DELETE requests → flask-operations service
    - Frontend → flask-frontend service
 
 **Or use this script:**
+
 ```bash
 # Create load balancer (simplified)
 gcloud compute url-maps create flask-app-map \
@@ -170,6 +186,7 @@ gcloud compute url-maps create flask-app-map \
 Since you're already using Cloudflare, here's how to connect it to Cloud Run:
 
 **Option 1: Direct to Cloud Run (Simplest)**
+
 1. Deploy services to Cloud Run (get the URLs)
 2. In Cloudflare DNS, create CNAME records:
    ```
@@ -180,6 +197,7 @@ Since you're already using Cloudflare, here's how to connect it to Cloud Run:
 4. Set up Page Rules for caching
 
 **Option 2: Keep Load Balancer + Cloudflare**
+
 1. Create Google Load Balancer (as documented above)
 2. Get Load Balancer IP address
 3. In Cloudflare DNS:
@@ -190,6 +208,7 @@ Since you're already using Cloudflare, here's how to connect it to Cloud Run:
 4. Enable Cloudflare proxy for CDN and security
 
 **Cloudflare Page Rules for API:**
+
 ```
 api.yourdomain.com/api/filesystem/*/download
 - Cache Level: Cache Everything
@@ -201,6 +220,7 @@ api.yourdomain.com/api/*
 ```
 
 **Cloudflare Settings to configure:**
+
 - SSL/TLS: Full (strict)
 - Security Level: Medium
 - Browser Cache TTL: 4 hours (for frontend)
@@ -209,6 +229,7 @@ api.yourdomain.com/api/*
 ## Custom Domain (Alternative without Cloudflare)
 
 **Add your domain directly to Google:**
+
 ```bash
 # Map custom domain to load balancer
 gcloud compute url-maps create flask-app-map \
@@ -222,28 +243,33 @@ gcloud compute ssl-certificates create flask-app-ssl \
 ## Scaling Configuration
 
 **Service limits:**
+
 - READ service: Up to 50 instances (handles most traffic)
 - WRITE service: Up to 20 instances (file uploads)
 - OPERATIONS service: Up to 30 instances (file operations)
 - Frontend: Up to 10 instances (static files)
 
 **Cost estimate for 1000 concurrent users:**
+
 - Cloud Run services: $50-100/month
 - Load Balancer: $18-25/month (see breakdown below)
 - Total: $70-125/month
 - Still much cheaper than VMs running 24/7
 
 **Google Load Balancer pricing:**
+
 - Forwarding rules: $18/month (flat rate)
 - Data processing: $0.008 per GB
 - Example: 100GB/month = $18 + $0.80 = $18.80/month
 
 **For low traffic (1 user/month):**
+
 - Load Balancer: $18/month (minimum cost)
-- Cloud Run: ~$0-2/month  
+- Cloud Run: ~$0-2/month
 - Total: ~$18-20/month
 
 **Cost-saving alternatives:**
+
 - Skip Load Balancer, use Cloudflare routing directly to services
 - Use single Cloud Run service with internal routing
 - For very low traffic, the $18 Load Balancer minimum might not be worth it
@@ -251,6 +277,7 @@ gcloud compute ssl-certificates create flask-app-ssl \
 ## Monitoring
 
 **Check service health:**
+
 ```bash
 # Get service status
 gcloud run services list --region=us-central1
@@ -262,18 +289,21 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=50
 ```
 
 **Set up alerts:**
+
 - Error rate > 5%
-- Response time > 2 seconds  
+- Response time > 2 seconds
 - Memory usage > 80%
 
 ## Database Setup
 
 **Use CockroachDB Cloud:**
+
 1. Create cluster at https://cockroachlabs.cloud
 2. Get connection string
 3. Add to all backend services as DATABASE_URL
 
 **Connection string format:**
+
 ```
 postgresql://username:password@host:26257/database?sslmode=require
 ```
@@ -281,6 +311,7 @@ postgresql://username:password@host:26257/database?sslmode=require
 ## File Storage
 
 **Use Google Cloud Storage:**
+
 1. Create bucket: `gsutil mb gs://your-app-files`
 2. Set up service account with Storage Admin role
 3. Add GCS_BUCKET_NAME to backend services
@@ -288,20 +319,23 @@ postgresql://username:password@host:26257/database?sslmode=require
 ## Troubleshooting
 
 **Service won't start:**
+
 ```bash
 # Check logs
 gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=flask-read" --limit=10
 
-# Check service configuration  
+# Check service configuration
 gcloud run services describe flask-read --region=us-central1
 ```
 
 **High costs:**
+
 - Check if services are scaling down to zero
 - Reduce max-instances if needed
 - Use `--no-cpu-throttling=false` to save money
 
 **Slow responses:**
+
 - Increase memory: `--memory=1Gi`
 - Increase CPU: `--cpu=2`
 - Check database connection pooling
@@ -324,6 +358,7 @@ Add Cloud Run deployment to your GitHub Actions:
 ## Cost Optimization
 
 **Tips to reduce costs:**
+
 - Set appropriate max-instances
 - Use `--concurrency=1000` for frontend
 - Enable CPU throttling: `--no-cpu-throttling=false`
@@ -331,8 +366,9 @@ Add Cloud Run deployment to your GitHub Actions:
 - Set up proper caching headers
 
 **Monthly costs for different scales:**
+
 - 100 users: ~$10-20
-- 1,000 users: ~$50-100  
+- 1,000 users: ~$50-100
 - 10,000 users: ~$200-500
 
 Much cheaper than running VMs 24/7 and scales automatically.
@@ -342,16 +378,19 @@ Much cheaper than running VMs 24/7 and scales automatically.
 Since you're currently using Cloudflare → VM → nginx → docker-compose, here's the migration path:
 
 **Current setup:**
+
 ```
 Cloudflare → VM (nginx) → Docker containers
 ```
 
 **New setup:**
+
 ```
 Cloudflare → Google Load Balancer → Cloud Run services
 ```
 
 **Migration steps:**
+
 1. Deploy to Cloud Run (keep VM running)
 2. Set up Load Balancer with same routing rules as your nginx
 3. Test Cloud Run setup with temporary subdomain
@@ -359,6 +398,7 @@ Cloudflare → Google Load Balancer → Cloud Run services
 5. Monitor for 24 hours, then shutdown VM
 
 **Nginx to Load Balancer mapping:**
+
 ```nginx
 # Your current nginx config
 location /api/filesystem {
@@ -369,14 +409,16 @@ location /api/filesystem {
 ```
 
 Becomes Load Balancer rules:
+
 ```
 GET /api/* → flask-read service
-POST /api/* → flask-write service  
+POST /api/* → flask-write service
 PUT|DELETE /api/* → flask-operations service
 /* → flask-frontend service
 ```
 
 **Benefits after migration:**
+
 - Auto-scaling (no more VM management)
 - Pay per request (not 24/7 VM costs)
 - Better performance under load
@@ -386,7 +428,7 @@ PUT|DELETE /api/* → flask-operations service
 ## Next Steps
 
 1. Deploy using the script
-2. Set up Load Balancer in Console  
+2. Set up Load Balancer in Console
 3. Configure environment variables
 4. Set up Cloudflare DNS (keep VM as backup)
 5. Test thoroughly, then migrate DNS

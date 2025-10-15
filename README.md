@@ -17,11 +17,11 @@ Full-stack file management system with Flask backend and React frontend in a Tur
 
 ## Tech Stack
 
-Backend: Python 3.12 + Flask + SQLAlchemy  
-Frontend: React 18 + TypeScript + Vite + Tailwind CSS  
-Database: PostgreSQL (dev) / CockroachDB (production)  
-State: Preact Signals  
-Testing: pytest + Playwright  
+Backend: Python 3.12 + Flask + SQLAlchemy
+Frontend: React 18 + TypeScript + Vite + Tailwind CSS
+Database: PostgreSQL (dev) / CockroachDB (production)
+State: Preact Signals
+Testing: pytest + Playwright
 Deployment: Docker + GitHub Actions
 
 ## Quick Start
@@ -29,14 +29,17 @@ Deployment: Docker + GitHub Actions
 Choose your setup method:
 
 **Option 1: Docker (Recommended)**
+
 ```bash
 git clone <repository-url>
 cd flask-react-monorepo
 docker-compose up --build
 ```
+
 Access: http://localhost:3000
 
 **Option 2: Local Development**
+
 ```bash
 git clone <repository-url>
 cd flask-react-monorepo
@@ -48,6 +51,7 @@ pip install -r requirements.txt
 cd ../..
 npm run dev
 ```
+
 Access: http://localhost:5173
 
 ## Platform-Specific Setup
@@ -55,6 +59,7 @@ Access: http://localhost:5173
 ### Windows
 
 **Python Virtual Environment:**
+
 ```powershell
 cd apps/backend
 python -m venv .venv
@@ -65,6 +70,7 @@ pip install -r requirements.txt
 ```
 
 **PostgreSQL Setup:**
+
 ```powershell
 # Using scoop package manager
 scoop install postgresql
@@ -76,12 +82,14 @@ createdb flask_react_db
 
 **Environment Variables:**
 Create `apps/backend/.env`:
+
 ```
 DATABASE_URL=postgresql://postgres:password@localhost:5432/flask_react_db
 SECRET_KEY=your-secret-key-here
 ```
 
 **Run Migrations:**
+
 ```powershell
 cd apps/backend
 flask db upgrade
@@ -90,6 +98,7 @@ flask db upgrade
 ### Mac
 
 **Python Virtual Environment:**
+
 ```bash
 cd apps/backend
 python3 -m venv .venv
@@ -98,6 +107,7 @@ pip install -r requirements.txt
 ```
 
 **PostgreSQL Setup:**
+
 ```bash
 # Using Homebrew
 brew install postgresql@15
@@ -107,12 +117,14 @@ createdb flask_react_db
 
 **Environment Variables:**
 Create `apps/backend/.env`:
+
 ```
 DATABASE_URL=postgresql://username@localhost:5432/flask_react_db
 SECRET_KEY=your-secret-key-here
 ```
 
 **Run Migrations:**
+
 ```bash
 cd apps/backend
 flask db upgrade
@@ -121,6 +133,7 @@ flask db upgrade
 ### Linux
 
 **Python Virtual Environment:**
+
 ```bash
 cd apps/backend
 python3 -m venv .venv
@@ -129,6 +142,7 @@ pip install -r requirements.txt
 ```
 
 **PostgreSQL Setup:**
+
 ```bash
 # Ubuntu/Debian
 sudo apt update
@@ -144,12 +158,14 @@ sudo -u postgres createdb flask_react_db
 
 **Environment Variables:**
 Create `apps/backend/.env`:
+
 ```
 DATABASE_URL=postgresql://postgres@localhost:5432/flask_react_db
 SECRET_KEY=your-secret-key-here
 ```
 
 **Run Migrations:**
+
 ```bash
 cd apps/backend
 flask db upgrade
@@ -159,6 +175,7 @@ flask db upgrade
 
 **Multi-Service Backend:**
 The backend runs 4 separate Flask instances in production:
+
 - 2x READ services (GET requests, load balanced)
 - 1x WRITE service (POST requests)
 - 1x OPERATIONS service (PUT/DELETE requests)
@@ -168,7 +185,7 @@ All services share the same PostgreSQL/CockroachDB database. Nginx routes reques
 ```mermaid
 graph TB
     Client[Client Browser]
-    
+
     subgraph Production
         Nginx[Nginx Reverse Proxy<br/>Port 80]
         Read1[READ Service 1<br/>GET requests]
@@ -177,7 +194,7 @@ graph TB
         Ops[OPERATIONS Service<br/>PUT/DELETE requests]
         DB[(PostgreSQL/<br/>CockroachDB)]
     end
-    
+
     subgraph Local Dev
         Proxy[Local Proxy<br/>Port 5000]
         ReadDev[READ Service<br/>Port 6001]
@@ -185,28 +202,28 @@ graph TB
         OpsDev[OPERATIONS Service<br/>Port 6003]
         DBDev[(PostgreSQL<br/>Port 5432)]
     end
-    
+
     Client -->|Production| Nginx
     Client -->|Development| Proxy
-    
+
     Nginx -->|GET| Read1
     Nginx -->|GET| Read2
     Nginx -->|POST| Write
     Nginx -->|PUT/DELETE| Ops
-    
+
     Proxy -->|GET| ReadDev
     Proxy -->|POST| WriteDev
     Proxy -->|PUT/DELETE| OpsDev
-    
+
     Read1 --> DB
     Read2 --> DB
     Write --> DB
     Ops --> DB
-    
+
     ReadDev --> DBDev
     WriteDev --> DBDev
     OpsDev --> DBDev
-    
+
     style Nginx fill:#4CAF50
     style Proxy fill:#2196F3
     style DB fill:#FF9800
@@ -217,12 +234,14 @@ graph TB
 Single proxy routes to all backend services running on different ports.
 
 **Database:**
+
 - Tables: users, filesystem_items, file_permissions
 - Unique constraint per user: prevents duplicate filenames in same folder
 - Cascade delete: deleting folder removes all nested items
 - See `docs_local/` for detailed architecture docs
 
 **Frontend:**
+
 - React with TypeScript
 - Preact Signals for state management (lightweight, no re-render issues)
 - Tailwind CSS for styling
@@ -256,6 +275,7 @@ turbo.json             # Monorepo task runner
 ## API Reference
 
 **File System Operations:**
+
 - `GET /api/filesystem` - List items in folder (query: parent_id)
 - `POST /api/filesystem` - Create folder
 - `GET /api/filesystem/{id}` - Get item details
@@ -265,11 +285,13 @@ turbo.json             # Monorepo task runner
 - `GET /api/filesystem/{id}/download` - Download file
 
 **File Upload Restrictions:**
+
 - Only PDF files allowed
 - Maximum file size: 100MB
 - Files validated for PDF format and content
 
 **System:**
+
 - `GET /api/health` - Health check
 
 All endpoints require authentication (Auth0 JWT) except in test mode.
@@ -277,6 +299,7 @@ All endpoints require authentication (Auth0 JWT) except in test mode.
 ## Development Commands
 
 **Root Directory:**
+
 ```bash
 npm run dev          # Start all services
 npm run build        # Build everything
@@ -286,6 +309,7 @@ npm run test:e2e     # Run E2E tests
 ```
 
 **Backend (apps/backend):**
+
 ```bash
 npm run dev          # Start Flask dev server
 npm run test         # Run pytest
@@ -296,6 +320,7 @@ flask db migrate     # Generate migration
 ```
 
 **Frontend (apps/frontend):**
+
 ```bash
 npm run dev          # Start Vite dev server
 npm run build        # Build for production
@@ -305,24 +330,14 @@ npm run preview      # Preview production build
 
 ## Testing
 
-**Setup Pre-commit Hooks (Recommended):**
-```bash
-# Install and setup pre-commit hooks
-./setup-precommit.sh    # Linux/Mac
-# OR
-setup-precommit.bat     # Windows
-
-# Hooks will now run automatically before each commit
-# To run manually: pre-commit run --all-files
-# To skip hooks: git commit --no-verify
-```
-
 **Run All Tests:**
+
 ```bash
 npm run test         # Backend + E2E tests
 ```
 
 **Backend Unit Tests:**
+
 ```bash
 cd apps/backend
 pytest tests/ -v
@@ -336,7 +351,7 @@ For local E2E testing, you need both backend and frontend running in test mode:
 # Windows - Terminal 1: Start backend in test mode
 .\start-backend-test.bat
 
-# Windows - Terminal 2: Start frontend in test mode  
+# Windows - Terminal 2: Start frontend in test mode
 .\start-frontend-test.bat
 
 # Terminal 3: Run E2E tests
@@ -359,6 +374,7 @@ npm run test:e2e:headed    # See browser
 ```
 
 **Prerequisites for local E2E tests:**
+
 - PostgreSQL running on localhost:5432
 - Database `flask_react_db` created
 - All dependencies installed (`npm install` in root)
@@ -366,6 +382,7 @@ npm run test:e2e:headed    # See browser
 **Test Mode (Bypass Auth):**
 
 Set environment variables to skip Auth0:
+
 - Backend: `TEST_MODE=true`
 - Frontend: `VITE_TEST_MODE=true`
 
@@ -374,6 +391,7 @@ Uses mock user "Test User" instead of real authentication. Playwright sets these
 ## Environment Variables
 
 **Backend (apps/backend/.env):**
+
 ```bash
 SECRET_KEY=your-secret-key-here
 DATABASE_URL=postgresql://user:password@localhost:5432/flask_react_db
@@ -387,6 +405,7 @@ GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
 ```
 
 **Frontend (apps/frontend/.env):**
+
 ```bash
 VITE_API_URL=http://localhost:5000/api
 VITE_TEST_MODE=false               # Set to true to bypass Auth0
@@ -406,6 +425,7 @@ Files are stored in the `uploads/` folder on your server. Good for development a
 Files are stored in a Google Cloud Storage bucket. Better for production and scaling.
 
 To use GCS:
+
 1. Create a Google Cloud Storage bucket
 2. Set up authentication (service account key file)
 3. Add to your environment:
@@ -437,11 +457,13 @@ See `docs_local/COCKROACHDB_SETUP.md` for details.
 **Docker Deployment:**
 
 **Option 1: Build from source**
+
 ```bash
 docker-compose up --build -d
 ```
 
 **Option 2: Use pre-built images from Docker Hub**
+
 ```bash
 # Pull latest images
 docker pull hamid2019/flask-react-backend:main
@@ -452,12 +474,14 @@ docker-compose up -d
 ```
 
 **Published Images:**
+
 - Backend: `hamid2019/flask-react-backend:main`
 - Frontend: `hamid2019/flask-react-frontend:main`
 
 Images are automatically built and pushed to Docker Hub when code is pushed to the main branch.
 
 Services:
+
 - Frontend: Port 3000
 - Backend: Port 5000 (nginx routes to read/write/operations services)
 - Database: Port 5432
@@ -465,12 +489,14 @@ Services:
 **CI/CD Pipeline:**
 
 GitHub Actions workflow runs on every push:
+
 1. Lint checks (flake8, black, isort, ESLint, Prettier)
 2. Backend tests (pytest with PostgreSQL)
 3. E2E tests (Playwright)
 4. Build Docker images (on main branch)
 
 Required secrets:
+
 - `DOCKER_USERNAME`
 - `DOCKER_PASSWORD`
 - `DATABASE_URL`
@@ -478,25 +504,30 @@ Required secrets:
 ## Troubleshooting
 
 **Database connection fails:**
+
 - Check PostgreSQL is running
 - Verify DATABASE_URL format
 - Ensure database exists: `createdb flask_react_db`
 
 **Migrations fail:**
+
 - Delete `apps/backend/migrations/` folder
 - Re-run: `flask db init && flask db migrate && flask db upgrade`
 
 **Port already in use:**
+
 - Change ports in docker-compose.yml or package.json scripts
 - Kill existing process: `lsof -ti:5000 | xargs kill` (Mac/Linux)
 
 **Auth0 errors:**
+
 - Set TEST_MODE=true to bypass authentication during development
 - Check Auth0 domain and client ID match
 
 ## Documentation
 
 Additional docs in `docs_local/`:
+
 - CODE_CONSOLIDATION.md - Multi-app architecture
 - RACE_CONDITIONS_ANALYSIS.md - Database safety
 - COCKROACHDB_SETUP.md - Production database setup

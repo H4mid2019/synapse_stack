@@ -5,9 +5,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    auth0_id = db.Column(
-        db.String(255), unique=True, nullable=False
-    )  # e.g., "auth0|123456"
+    auth0_id = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     name = db.Column(db.String(255), nullable=True)
     picture = db.Column(db.String(500), nullable=True)
@@ -34,7 +32,7 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            "id": str(self.id),  # Convert to string for JavaScript compatibility
+            "id": str(self.id),
             "auth0_id": self.auth0_id,
             "email": self.email,
             "name": self.name,
@@ -53,16 +51,15 @@ class FileSystemItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     type = db.Column(db.Enum("folder", "file", name="item_type"), nullable=False)
-    parent_id = db.Column(
-        db.Integer, db.ForeignKey("filesystem_items.id"), nullable=True
-    )
-    owner_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False
-    )  # NEW: Owner
+    parent_id = db.Column(db.Integer, db.ForeignKey("filesystem_items.id"), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     size = db.Column(db.BigInteger, nullable=True)
     mime_type = db.Column(db.String(100), nullable=True)
     path = db.Column(db.String(1000), nullable=True)
-    is_public = db.Column(db.Boolean, default=False)  # NEW: Public access
+    is_public = db.Column(db.Boolean, default=False)
+    content_text = db.Column(db.Text, nullable=True)
+    content_extracted = db.Column(db.Boolean, default=False)
+    extraction_error = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(
         db.DateTime,
@@ -70,24 +67,15 @@ class FileSystemItem(db.Model):
         onupdate=db.func.current_timestamp(),
     )
 
-    # Self-referential relationship for parent-child
     parent = db.relationship("FileSystemItem", remote_side=[id], backref="children")
 
-    # Relationships
-    permissions = db.relationship(
-        "FilePermission", backref="item", lazy=True, cascade="all, delete-orphan"
-    )
+    permissions = db.relationship("FilePermission", backref="item", lazy=True, cascade="all, delete-orphan")
 
-    # Ensure unique names per location per owner
-    __table_args__ = (
-        db.UniqueConstraint(
-            "name", "parent_id", "owner_id", name="unique_name_per_location_per_owner"
-        ),
-    )
+    __table_args__ = (db.UniqueConstraint("name", "parent_id", "owner_id", name="unique_name_per_location_per_owner"),)
 
     def to_dict(self, include_owner=False):
         data = {
-            "id": str(self.id),  # Convert to string for JavaScript compatibility
+            "id": str(self.id),
             "name": self.name,
             "type": self.type,
             "parent_id": str(self.parent_id) if self.parent_id else None,
@@ -96,6 +84,8 @@ class FileSystemItem(db.Model):
             "mime_type": self.mime_type,
             "path": self.path,
             "is_public": self.is_public,
+            "content_extracted": self.content_extracted,
+            "extraction_error": self.extraction_error,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -114,14 +104,11 @@ class FileSystemItem(db.Model):
 
 
 class FilePermission(db.Model):
-    """Manages file/folder sharing between users"""
 
     __tablename__ = "file_permissions"
 
     id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(
-        db.Integer, db.ForeignKey("filesystem_items.id"), nullable=False
-    )
+    item_id = db.Column(db.Integer, db.ForeignKey("filesystem_items.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     permission = db.Column(
         db.Enum("read", "write", "admin", name="permission_type"),
@@ -131,10 +118,7 @@ class FilePermission(db.Model):
     granted_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     granted_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
-    # Ensure unique user-item pairs
-    __table_args__ = (
-        db.UniqueConstraint("item_id", "user_id", name="unique_item_user_permission"),
-    )
+    __table_args__ = (db.UniqueConstraint("item_id", "user_id", name="unique_item_user_permission"),)
 
     def to_dict(self):
         return {

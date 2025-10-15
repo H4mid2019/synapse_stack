@@ -5,32 +5,58 @@ services:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile
-    
+
     env_file: ".env.prod"
-    
+
     ports:
       - "5050:5000"
-    
+
     volumes:
       - ./uploads:/app/uploads
       - ./service-account-key.json:/app/service-account-key.json:ro
       - ./root.crt:/root/.postgresql/root.crt:ro
-    
+
     restart: unless-stopped
-    
+
     # Production setup: supervisor runs nginx + 4 bjoern processes
     # Nginx listens on port 5000, load balances to:
     #   - Read Service 1: port 6001
     #   - Read Service 2: port 6011
     #   - Write Service: port 6002
     #   - Operations Service: port 6003
-    
+
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000/api/health\")'"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  text-extractor:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+
+    env_file: ".env.prod"
+
+    ports:
+      - "6004:6004"
+
+    volumes:
+      - ./uploads:/app/uploads
+      - ./service-account-key.json:/app/service-account-key.json:ro
+      - ./root.crt:/root/.postgresql/root.crt:ro
+
+    restart: unless-stopped
+
+    command: ["python", "text_extractor.py"]
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:6004/health\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   frontend:
     build:
@@ -41,18 +67,18 @@ services:
         VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
         VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
         VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
-    
+
     env_file: ".env.prod"
-    
+
     ports:
       - "3030:80"
-    
+
     restart: unless-stopped
-    
+
     depends_on:
       backend:
         condition: service_healthy
-    
+
     healthcheck:
       test: ["CMD-SHELL", "test -f /usr/share/nginx/html/index.html"]
       interval: 30s

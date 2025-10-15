@@ -14,42 +14,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install Node dependencies
         run: npm ci
-      
+
       - name: Install Python dependencies
         working-directory: ./apps/backend
         run: |
           python -m pip install --upgrade pip
           pip install flake8 black isort
-      
+
       - name: Run JavaScript/TypeScript linter
         run: npm run lint
-      
+
       - name: Run Python linter (flake8)
         working-directory: ./apps/backend
         run: python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120 --count --statistics
-      
+
       - name: Check Python formatting (black)
         working-directory: ./apps/backend
         run: python -m black . --check --exclude='(\.venv|migrations|__pycache__)'
-      
+
       - name: Check Python import ordering (isort)
         working-directory: ./apps/backend
         run: python -m isort . --check --skip .venv --skip migrations --skip __pycache__
-      
+
       - name: Check JavaScript/TypeScript formatting
         run: npm run format -- --check
 
@@ -71,21 +71,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libev-dev
-      
+
       - name: Install Python dependencies
         working-directory: ./apps/backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Run backend tests
         working-directory: ./apps/backend
         env:
@@ -96,20 +96,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run frontend type check
         working-directory: ./apps/frontend
         run: npm run type-check
-      
+
       - name: Build frontend
         working-directory: ./apps/frontend
         run: npm run build
@@ -132,32 +132,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install system dependencies for nginx and bjoern
         run: |
           sudo apt-get update
           sudo apt-get install -y nginx libev-dev
-      
+
       - name: Install Node dependencies
         run: npm ci
-      
+
       - name: Install Python dependencies
         working-directory: ./apps/backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Run database migrations
         working-directory: ./apps/backend
         env:
@@ -166,14 +166,14 @@ jobs:
         run: |
           echo "Running database migrations..."
           flask db upgrade || (echo "Migration failed, trying to create tables directly..." && python -c "from app_factory import create_app; from database import db; app = create_app('operations'); app.app_context().push(); db.create_all(); print('Tables created successfully')")
-      
+
       - name: Configure nginx for multi-app routing
         run: |
           sudo cp apps/backend/nginx-ci.conf /etc/nginx/sites-available/backend
           sudo rm -f /etc/nginx/sites-enabled/default
           sudo ln -s /etc/nginx/sites-available/backend /etc/nginx/sites-enabled/backend
           sudo nginx -t
-      
+
       - name: Start backend services with bjoern
         working-directory: ./apps/backend
         env:
@@ -185,26 +185,26 @@ jobs:
           TEST_MODE=true PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
           echo $! > /tmp/read1.pid
           sleep 2
-          
+
           # Start read service instance 2
           TEST_MODE=true PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
           echo $! > /tmp/read2.pid
           sleep 2
-          
+
           # Start write service
           TEST_MODE=true PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
           echo $! > /tmp/write.pid
           sleep 2
-          
+
           # Start operations service
           TEST_MODE=true PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
           echo $! > /tmp/operations.pid
           sleep 3
-          
+
           # Start nginx
           sudo systemctl start nginx
           sleep 2
-          
+
           # Verify all services are running
           echo "Checking backend services..."
           curl -f http://localhost:6001/api/health && echo "[OK] Read service 1 running" || echo "[ERROR] Read service 1 failed"
@@ -212,7 +212,7 @@ jobs:
           curl -f http://localhost:6002/api/health && echo "[OK] Write service running" || echo "[ERROR] Write service failed"
           curl -f http://localhost:6003/api/health && echo "[OK] Operations service running" || echo "[ERROR] Operations service failed"
           curl -f http://localhost:5000/api/health && echo "[OK] Nginx proxy running" || echo "[ERROR] Nginx failed"
-          
+
           # Exit if any service failed
           if ! curl -f http://localhost:6001/api/health || \
              ! curl -f http://localhost:6011/api/health || \
@@ -223,16 +223,16 @@ jobs:
             cat /tmp/read1.log /tmp/read2.log /tmp/write.log /tmp/operations.log
             exit 1
           fi
-      
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      
+
       - name: Run Playwright E2E tests
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           CI: true
         run: npm run test:e2e
-      
+
       - name: Show backend logs on failure
         if: failure()
         run: |
@@ -246,7 +246,7 @@ jobs:
           cat /tmp/operations.log || echo "No logs"
           echo "=== Nginx Error Logs ==="
           sudo cat /var/log/nginx/error.log || echo "No logs"
-      
+
       - name: Cleanup backend processes
         if: always()
         run: |
@@ -255,7 +255,7 @@ jobs:
           [ -f /tmp/write.pid ] && kill $(cat /tmp/write.pid) || true
           [ -f /tmp/operations.pid ] && kill $(cat /tmp/operations.pid) || true
           sudo systemctl stop nginx || true
-      
+
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
@@ -263,7 +263,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
-      
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -277,21 +277,21 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: [lint-and-format, test-backend, test-frontend, test-e2e]
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      
+
       - name: Extract metadata for backend
         id: meta_backend
         uses: docker/metadata-action@v5
@@ -301,7 +301,7 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-      
+
       - name: Extract metadata for frontend
         id: meta_frontend
         uses: docker/metadata-action@v5
@@ -311,7 +311,7 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-      
+
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -322,7 +322,7 @@ jobs:
           labels: ${{ steps.meta_backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:

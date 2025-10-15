@@ -10,7 +10,6 @@ import sys
 from os import getenv
 
 import bjoern
-
 from app_factory import APP_CONFIGS, create_app
 
 

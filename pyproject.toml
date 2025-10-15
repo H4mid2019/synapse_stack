@@ -1,0 +1,32 @@
+[tool.black]
+line-length = 120
+target-version = ['py312']
+exclude = '''
+/(
+    \.venv
+  | migrations
+  | __pycache__
+  | node_modules
+  | \.git
+  | \.pytest_cache
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = true
+skip = [".venv", "migrations", "__pycache__", "node_modules"]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203", "W503"]
+exclude = [".venv", "migrations", "__pycache__", "node_modules"]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

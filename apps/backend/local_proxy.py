@@ -38,9 +38,7 @@ def proxy_request(target_url):
                 stream=True,
             )
         elif request.method == "PUT":
-            resp = requests.put(
-                url, data=request.get_data(), headers=headers, params=request.args
-            )
+            resp = requests.put(url, data=request.get_data(), headers=headers, params=request.args)
         elif request.method == "DELETE":
             resp = requests.delete(url, headers=headers, params=request.args)
         else:
@@ -52,11 +50,7 @@ def proxy_request(target_url):
             "transfer-encoding",
             "connection",
         ]
-        headers = [
-            (name, value)
-            for name, value in resp.raw.headers.items()
-            if name.lower() not in excluded_headers
-        ]
+        headers = [(name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_headers]
 
         return Response(resp.content, resp.status_code, headers)
 

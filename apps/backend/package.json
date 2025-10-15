@@ -2,13 +2,15 @@
   "name": "backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "python start_local.py",
+    "dev": "python start_dev_simple.py",
+    "dev:basic": "python start_local.py",
+    "dev:extractor": "python text_extractor.py",
     "dev:single": "python main.py",
     "test": "python -m pytest tests/ -v",
     "lint": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120",
     "lint:check": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120 --count --statistics",
-    "format": "python -m black . --exclude='(\\.venv|migrations|__pycache__)' && python -m isort . --skip .venv --skip migrations --skip __pycache__",
-    "format:check": "python -m black . --check --exclude='(\\.venv|migrations|__pycache__)' && python -m isort . --check --skip .venv --skip migrations --skip __pycache__",
+    "format": "python -m black . --exclude \\.venv --exclude migrations --exclude __pycache__ && python -m isort . --skip .venv --skip migrations --skip __pycache__",
+    "format:check": "python -m black . --check --exclude \\.venv --exclude migrations --exclude __pycache__ && python -m isort . --check --skip .venv --skip migrations --skip __pycache__",
     "imports:fix": "python -m isort . --skip .venv --skip migrations --skip __pycache__",
     "imports:check": "python -m isort . --check --skip .venv --skip migrations --skip __pycache__",
     "build": "echo \"Backend build complete\""

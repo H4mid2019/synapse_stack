@@ -46,13 +46,12 @@ export const FileExplorer = ({
       itemsActions.addItem(newFolder);
       setNewFolderName('');
       setIsCreatingFolder(false);
-      toast.success(`Folder "${newFolder.name}" created successfully!`);
+      toast.success(`Folder created: ${newFolder.name}`);
     } catch (err: unknown) {
       const errorMessage =
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error || 'Failed to create folder';
       toast.error(errorMessage);
-      console.error('Failed to create folder:', err);
     }
   };
 
@@ -83,18 +82,15 @@ export const FileExplorer = ({
             (err as { response?: { data?: { error?: string } } })?.response
               ?.data?.error || 'Failed to upload file';
           toast.error(`${file.name}: ${errorMessage}`);
-          console.error(`Failed to upload ${file.name}:`, err);
         }
       }
 
-      // Show success message
       if (successCount > 0) {
         toast.success(
-          `Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}!`
+          `Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`
         );
       }
 
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -122,7 +118,6 @@ export const FileExplorer = ({
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error || 'Failed to download file';
       toast.error(errorMessage);
-      console.error('Failed to download file:', err);
     }
   };
 
@@ -150,7 +145,6 @@ export const FileExplorer = ({
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error || 'Failed to rename item';
       toast.error(errorMessage);
-      console.error('Failed to rename item:', err);
     }
   };
 
@@ -174,10 +168,8 @@ export const FileExplorer = ({
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Determine which items to display
   const displayItems = isSearchActive && searchResults ? searchResults : items;
 
-  // Filter items by current folder
   const folderItems = displayItems.filter((item) => item.type === 'folder');
   const fileItems = displayItems.filter((item) => item.type === 'file');
 
@@ -198,7 +190,6 @@ export const FileExplorer = ({
         </p>
       </div>
 
-      {/* Search Bar */}
       <SearchBar
         currentFolderId={currentFolderId}
         onSearchResults={(results) => {
@@ -539,7 +530,6 @@ export const FileExplorer = ({
         ))}
       </div>
 
-      {/* Empty State */}
       {displayItems.length === 0 && !isCreatingFolder && (
         <div className="text-center py-12">
           <svg

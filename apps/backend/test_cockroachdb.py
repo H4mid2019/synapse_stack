@@ -22,9 +22,7 @@ def test_connection():
     if not database_uri:
         print("ERROR: DATABASE_URL not set in environment")
         print("\nSet it with:")
-        print(
-            "  export DATABASE_URL='cockroachdb://user:pass@host:26257/db?sslmode=verify-full'"
-        )
+        print("  export DATABASE_URL='cockroachdb://user:pass@host:26257/db?sslmode=verify-full'")
         sys.exit(1)
 
     print("CockroachDB Connection Test")
@@ -36,18 +34,11 @@ def test_connection():
     converted_uri = database_uri
 
     if database_uri.startswith("cockroachdb://"):
-        converted_uri = database_uri.replace(
-            "cockroachdb://", "cockroachdb+psycopg2://"
-        )
+        converted_uri = database_uri.replace("cockroachdb://", "cockroachdb+psycopg2://")
         print("Detected cockroachdb:// prefix")
-    elif (
-        "cockroachlabs.cloud" in database_uri
-        or os.getenv("USE_COCKROACHDB", "").lower() == "true"
-    ):
+    elif "cockroachlabs.cloud" in database_uri or os.getenv("USE_COCKROACHDB", "").lower() == "true":
         if database_uri.startswith("postgresql://"):
-            converted_uri = database_uri.replace(
-                "postgresql://", "cockroachdb+psycopg2://"
-            )
+            converted_uri = database_uri.replace("postgresql://", "cockroachdb+psycopg2://")
             print("Detected CockroachDB Cloud URI")
 
     print(f"Converted URI: {converted_uri[:40]}...")
@@ -80,15 +71,9 @@ def test_connection():
             print(f"Test query successful (result: {test_value})")
 
             print("\nTesting table creation...")
+            connection.execute(text("CREATE TABLE IF NOT EXISTS _connection_test (id INT PRIMARY KEY, data TEXT)"))
             connection.execute(
-                text(
-                    "CREATE TABLE IF NOT EXISTS _connection_test (id INT PRIMARY KEY, data TEXT)"
-                )
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO _connection_test (id, data) VALUES (1, 'test') ON CONFLICT (id) DO NOTHING"
-                )
+                text("INSERT INTO _connection_test (id, data) VALUES (1, 'test') ON CONFLICT (id) DO NOTHING")
             )
             connection.execute(text("DROP TABLE _connection_test"))
             connection.commit()

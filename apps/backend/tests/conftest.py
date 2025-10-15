@@ -30,9 +30,7 @@ def app():
         # Create default test user
         user = User.query.filter_by(auth0_id="test|12345").first()
         if not user:
-            user = User(
-                auth0_id="test|12345", email="test@example.com", name="Test User"
-            )
+            user = User(auth0_id="test|12345", email="test@example.com", name="Test User")
             db.session.add(user)
             db.session.commit()
 
@@ -58,9 +56,7 @@ def sample_user(app):
 def sample_item(app):
     with app.app_context():
         user = User.query.filter_by(auth0_id="test|12345").first()
-        item = FileSystemItem(
-            name="Test Folder", type="folder", owner_id=user.id, parent_id=None
-        )
+        item = FileSystemItem(name="Test Folder", type="folder", owner_id=user.id, parent_id=None)
         db.session.add(item)
         db.session.commit()
         db.session.refresh(item)

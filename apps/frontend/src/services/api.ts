@@ -26,11 +26,9 @@ export const setAuthToken = (getTokenFn: () => Promise<string>) => {
 api.interceptors.request.use(
   async (config) => {
     if (getAccessToken) {
-      try {
-        const token = await getAccessToken();
+      const token = await getAccessToken();
+      if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-      } catch (error) {
-        console.error('Failed to get access token:', error);
       }
     }
     return config;

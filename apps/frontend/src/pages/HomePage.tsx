@@ -3,7 +3,14 @@ import { filesystemApi } from '../services/api';
 import { FileExplorer } from '../components/FileExplorer';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { toast } from 'react-toastify';
-import { items, currentFolderId, breadcrumb, loading, error, itemsActions } from '../store/itemsStore';
+import {
+  items,
+  currentFolderId,
+  breadcrumb,
+  loading,
+  error,
+  itemsActions,
+} from '../store/itemsStore';
 
 export const HomePage = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -11,7 +18,6 @@ export const HomePage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [localFolderId, setLocalFolderId] = useState(currentFolderId.value);
 
-  // Fetch items whenever localFolderId changes
   useEffect(() => {
     const fetchItems = async () => {
       itemsActions.setLoading(true);
@@ -36,17 +42,18 @@ export const HomePage = () => {
     if (itemToDelete === null || isDeleting) return;
 
     setIsDeleting(true);
-    
+
     try {
       await filesystemApi.delete(itemToDelete);
       itemsActions.deleteItem(itemToDelete);
-      toast.success('Item deleted successfully!');
+      toast.success('Item deleted');
       setDeleteModalOpen(false);
       setItemToDelete(null);
     } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to delete item';
+      const errorMessage =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || 'Failed to delete item';
       toast.error(errorMessage);
-      console.error('Failed to delete item:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -89,7 +96,7 @@ export const HomePage = () => {
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />
-      
+
       <FileExplorer
         items={items.value}
         currentFolderId={currentFolderId.value}

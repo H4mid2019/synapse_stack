@@ -34,6 +34,21 @@ services:
     # Production: supervisor manages nginx + 4 bjoern processes (2 read, 1 write, 1 operations)
     # Nginx on port 5000 load balances to internal ports 6001, 6011, 6002, 6003
 
+  text-extractor:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/flask_react_db
+    ports:
+      - "6004:6004"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend/uploads:/app/uploads
+    command: ["python", "text_extractor.py"]
+
   frontend:
     build:
       context: ./apps/frontend

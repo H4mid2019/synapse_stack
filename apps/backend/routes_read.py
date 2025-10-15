@@ -1,11 +1,10 @@
 import logging
 
-from flask import Blueprint, jsonify, request
-from sqlalchemy import text
-
 from auth import get_or_create_user, requires_auth
 from database import db
+from flask import Blueprint, jsonify, request
 from models import FileSystemItem, User
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +19,13 @@ def get_filesystem_items():
         parent_id = request.args.get("parent_id", default=None, type=int)
 
         if parent_id is None:
-            items = FileSystemItem.query.filter_by(
-                parent_id=None, owner_id=user.id
-            ).all()
+            items = FileSystemItem.query.filter_by(parent_id=None, owner_id=user.id).all()
             return (
-                jsonify(
-                    {"items": [item.to_dict() for item in items], "breadcrumb": []}
-                ),
+                jsonify({"items": [item.to_dict() for item in items], "breadcrumb": []}),
                 200,
             )
         else:
-            items = FileSystemItem.query.filter_by(
-                parent_id=parent_id, owner_id=user.id
-            ).all()
+            items = FileSystemItem.query.filter_by(parent_id=parent_id, owner_id=user.id).all()
 
             # Get breadcrumb using single recursive CTE query
             query = text(
@@ -60,9 +53,7 @@ def get_filesystem_items():
             """
             )
 
-            result = db.session.execute(
-                query, {"item_id": parent_id, "owner_id": user.id}
-            )
+            result = db.session.execute(query, {"item_id": parent_id, "owner_id": user.id})
             rows = result.fetchall()
 
             breadcrumb = []

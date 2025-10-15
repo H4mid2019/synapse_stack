@@ -1,21 +1,18 @@
 import { signal, computed } from '@preact/signals-react';
 import type { FileSystemItem } from '../types';
 
-// Signals - each is independently reactive
 export const items = signal<FileSystemItem[]>([]);
 export const currentFolderId = signal<number | null>(null);
 export const breadcrumb = signal<FileSystemItem[]>([]);
 export const loading = signal<boolean>(false);
 export const error = signal<string | null>(null);
 
-// Computed values (optional - derived state)
 export const currentFolderItems = computed(() => {
-  return items.value.filter(item => item.parent_id === currentFolderId.value);
+  return items.value.filter((item) => item.parent_id === currentFolderId.value);
 });
 
 export const hasItems = computed(() => items.value.length > 0);
 
-// Actions - clean, simple functions to update signals
 export const itemsActions = {
   setLoading: (value: boolean) => {
     loading.value = value;
@@ -37,13 +34,13 @@ export const itemsActions = {
   },
 
   updateItem: (updatedItem: FileSystemItem) => {
-    items.value = items.value.map(item =>
+    items.value = items.value.map((item) =>
       item.id === updatedItem.id ? updatedItem : item
     );
   },
 
   deleteItem: (itemId: number) => {
-    items.value = items.value.filter(item => item.id !== itemId);
+    items.value = items.value.filter((item) => item.id !== itemId);
   },
 
   setCurrentFolder: (folderId: number | null) => {
@@ -54,7 +51,6 @@ export const itemsActions = {
     breadcrumb.value = newBreadcrumb;
   },
 
-  // Bonus: Reset everything
   reset: () => {
     items.value = [];
     currentFolderId.value = null;

@@ -29,40 +29,32 @@ logger = logging.getLogger(__name__)
 
 operations_bp = Blueprint("operations", __name__)
 
-# Configure upload folder (fallback for local development)
 UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# File upload configuration
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_FILE_SIZE = 100 * 1024 * 1024
 ALLOWED_EXTENSIONS = {"pdf"}
 ALLOWED_MIME_TYPES = {"application/pdf"}
 
 
 def allowed_file(filename):
-    """Check if file extension is allowed"""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def validate_pdf_content(file_content):
-    """Validate PDF using multiple methods for security"""
-    # Method 1: Check magic bytes (PDF signature)
     if not file_content.startswith(b"%PDF-"):
         return False, "File is not a valid PDF (invalid header)"
 
-    # Method 2: Use python-magic if available
     if HAS_MAGIC:
         mime = magic.from_buffer(file_content[:2048], mime=True)
         if mime != "application/pdf":
             return False, f"File MIME type is {mime}, expected application/pdf"
 
-    # Method 3: Try to parse with PyPDF2 if available
     if HAS_PYPDF2:
         try:
             pdf_file = BytesIO(file_content)
             reader = PdfReader(pdf_file)
-            # Try to access pages to ensure it's valid
             page_count = len(reader.pages)
             if page_count == 0:
                 return False, "PDF file appears to be empty or corrupted"
@@ -73,7 +65,6 @@ def validate_pdf_content(file_content):
 
 
 def validate_file_size(file_content):
-    """Check if file size is within limits"""
     size = len(file_content)
     if size > MAX_FILE_SIZE:
         size_mb = size / (1024 * 1024)
@@ -84,29 +75,31 @@ def validate_file_size(file_content):
 
 TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
 
-# GCS Configuration
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 USE_GCS = GCS_BUCKET_NAME is not None
 
-# Initialize GCS client if configured
 if USE_GCS:
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(GCS_BUCKET_NAME)
-        logger.info("[OK] Google Cloud Storage initialized: %s", GCS_BUCKET_NAME)
+        logger.info("Google Cloud Storage initialized: %s", GCS_BUCKET_NAME)
     except Exception as e:
-        logger.error("[ERROR] Failed to initialize GCS: %s", str(e))
+        logger.error("Failed to initialize GCS: %s", str(e))
         USE_GCS = False
         logger.info("Falling back to local file storage")
 else:
     logger.info("Using local file storage (GCS_BUCKET_NAME not set)")
 
 
-def get_file_path(item_id):
-    """Generate file path for storing files"""
-    if USE_GCS:
-        return f"uploads/{item_id}"
-    return os.path.join(UPLOAD_FOLDER, str(item_id))
+def get_file_path(item_id, filename=None):
+    if filename and "." in filename:
+        extension = filename.rsplit(".", 1)[1]
+        base_path = (
+            f"uploads/{item_id}.{extension}" if USE_GCS else os.path.join(UPLOAD_FOLDER, f"{item_id}.{extension}")
+        )
+    else:
+        base_path = f"uploads/{item_id}" if USE_GCS else os.path.join(UPLOAD_FOLDER, str(item_id))
+    return base_path
 
 
 @operations_bp.route("/filesystem/<int:item_id>", methods=["PUT"])
@@ -134,11 +127,7 @@ def update_filesystem_item(item_id):
 
             if existing_item:
                 return (
-                    jsonify(
-                        {
-                            "error": "An item with this name already exists in this folder"
-                        }
-                    ),
+                    jsonify({"error": "An item with this name already exists in this folder"}),
                     400,
                 )
 
@@ -154,20 +143,16 @@ def update_filesystem_item(item_id):
 
     except IntegrityError as e:
         db.session.rollback()
-        logger.error(
-            "[ERROR] Integrity error updating filesystem item %s: %s", item_id, str(e)
-        )
+        logger.error("Integrity error updating filesystem item %s: %s", item_id, str(e))
         if "unique_name_per_location_per_owner" in str(e):
             return (
-                jsonify(
-                    {"error": "An item with this name already exists in this folder"}
-                ),
+                jsonify({"error": "An item with this name already exists in this folder"}),
                 409,
             )
         return jsonify({"error": "Database constraint violation"}), 409
     except Exception as e:
         db.session.rollback()
-        logger.error("[ERROR] Error updating filesystem item %s: %s", item_id, str(e))
+        logger.error("Error updating filesystem item %s: %s", item_id, str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -181,34 +166,42 @@ def delete_filesystem_item(item_id):
         if not item:
             return jsonify({"error": "Item not found"}), 404
 
-        # If it's a file, delete the actual file from storage
         if item.type == "file":
-            file_path = get_file_path(item_id)
+            file_path = get_file_path(item_id, item.name)
             if USE_GCS:
                 blob = bucket.blob(file_path)
                 if blob.exists():
                     blob.delete()
                     logger.info("Deleted file from GCS: %s", file_path)
+                else:
+                    logger.warning("File not found in GCS: %s", file_path)
             else:
                 if os.path.exists(file_path):
                     os.remove(file_path)
                     logger.info("Deleted file from local storage: %s", file_path)
+                else:
+                    logger.warning("File not found on disk: %s", file_path)
 
-        # Delete all children recursively if it's a folder
         if item.type == "folder":
 
             def delete_children(parent_id):
                 children = FileSystemItem.query.filter_by(parent_id=parent_id).all()
                 for child in children:
                     if child.type == "file":
-                        file_path = get_file_path(child.id)
+                        file_path = get_file_path(child.id, child.name)
                         if USE_GCS:
                             blob = bucket.blob(file_path)
                             if blob.exists():
                                 blob.delete()
+                                logger.info("Deleted child file from GCS: %s", file_path)
+                            else:
+                                logger.warning("Child file not found in GCS: %s", file_path)
                         else:
                             if os.path.exists(file_path):
                                 os.remove(file_path)
+                                logger.info("Deleted child file from local storage: %s", file_path)
+                            else:
+                                logger.warning("Child file not found on disk: %s", file_path)
                     elif child.type == "folder":
                         delete_children(child.id)
                     db.session.delete(child)
@@ -223,7 +216,7 @@ def delete_filesystem_item(item_id):
 
     except Exception as e:
         db.session.rollback()
-        logger.error("[ERROR] Error deleting filesystem item %s: %s", item_id, str(e))
+        logger.error("Error deleting filesystem item %s: %s", item_id, str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -248,32 +241,23 @@ def upload_file():
         parent_id = request.form.get("parent_id", type=int)
         filename = secure_filename(file.filename)
 
-        # Ensure filename has .pdf extension after secure_filename processing
         if not filename.lower().endswith(".pdf"):
-            # Add .pdf if secure_filename removed it
             filename = filename + ".pdf" if filename else "document.pdf"
 
-        existing_item = FileSystemItem.query.filter_by(
-            name=filename, parent_id=parent_id, owner_id=user.id
-        ).first()
+        existing_item = FileSystemItem.query.filter_by(name=filename, parent_id=parent_id, owner_id=user.id).first()
 
         if existing_item:
             return (
-                jsonify(
-                    {"error": "A file with this name already exists in this folder"}
-                ),
+                jsonify({"error": "A file with this name already exists in this folder"}),
                 400,
             )
 
-        # Read and validate file content
         file_content = file.read()
 
-        # Validate file size
         size_valid, size_message = validate_file_size(file_content)
         if not size_valid:
             return jsonify({"error": size_message}), 400
 
-        # Validate PDF content
         pdf_valid, pdf_message = validate_pdf_content(file_content)
         if not pdf_valid:
             return jsonify({"error": pdf_message}), 400
@@ -286,13 +270,13 @@ def upload_file():
             parent_id=parent_id,
             owner_id=user.id,
             size=file_size,
-            mime_type="application/pdf",  # Always PDF since we validated it
+            mime_type="application/pdf",
         )
 
         db.session.add(item)
         db.session.flush()
 
-        file_path = get_file_path(item.id)
+        file_path = get_file_path(item.id, filename)
 
         if USE_GCS:
             blob = bucket.blob(file_path)
@@ -306,23 +290,42 @@ def upload_file():
         item.path = file_path
         db.session.commit()
 
+        try:
+            import requests
+
+            logger.info("Attempting to notify text extractor for file %s", item.id)
+            extraction_response = requests.post(
+                "http://localhost:6004/extract",
+                json={"file_id": item.id, "file_path": file_path},
+                timeout=5,
+            )
+            logger.info("Extractor response status: %s", extraction_response.status_code)
+            logger.info("Extractor response body: %s", extraction_response.text)
+
+            if extraction_response.status_code == 200:
+                logger.info("File %s queued for text extraction", item.id)
+            else:
+                logger.warning("Failed to queue file %s for extraction: %s", item.id, extraction_response.status_code)
+        except requests.exceptions.RequestException as e:
+            logger.error("Network error contacting text extractor: %s", str(e))
+        except Exception as e:
+            logger.error("Unexpected error notifying text extractor: %s", str(e))
+
         logger.info("Uploaded file: %s", item.name)
         return jsonify(item.to_dict()), 201
 
     except IntegrityError as e:
         db.session.rollback()
-        logger.error("[ERROR] Integrity error uploading file: %s", str(e))
+        logger.error("Integrity error uploading file: %s", str(e))
         if "unique_name_per_location_per_owner" in str(e):
             return (
-                jsonify(
-                    {"error": "A file with this name already exists in this folder"}
-                ),
+                jsonify({"error": "A file with this name already exists in this folder"}),
                 409,
             )
         return jsonify({"error": "Database constraint violation"}), 409
     except Exception as e:
         db.session.rollback()
-        logger.error("[ERROR] Error uploading file: %s", str(e))
+        logger.error("Error uploading file: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -339,7 +342,7 @@ def download_file(item_id):
         if item.type != "file":
             return jsonify({"error": "Item is not a file"}), 400
 
-        file_path = get_file_path(item_id)
+        file_path = get_file_path(item_id, item.name)
 
         if USE_GCS:
             blob = bucket.blob(file_path)
@@ -360,7 +363,7 @@ def download_file(item_id):
             return send_file(file_path, as_attachment=True, download_name=item.name)
 
     except Exception as e:
-        logger.error("[ERROR] Error downloading file %s: %s", item_id, str(e))
+        logger.error("Error downloading file %s: %s", item_id, str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -370,93 +373,68 @@ def search_files():
     try:
         user = get_or_create_user(db, User)
 
-        # Get search parameters from query string
         query = request.args.get("q", "").strip()
-        file_type = request.args.get("type", "").strip()  # 'file' or 'folder' or both
-        parent_id = request.args.get(
-            "parent_id", type=int
-        )  # search within specific folder
+        file_type = request.args.get("type", "").strip()
+        parent_id = request.args.get("parent_id", type=int)
         page = request.args.get("page", 1, type=int)
         limit = request.args.get("limit", 50, type=int)
 
-        # Validate parameters
         if not query:
             return jsonify({"error": "Search query is required"}), 400
 
-        if limit > 100:  # Prevent excessive results
+        if limit > 100:
             limit = 100
 
         if page < 1:
             page = 1
 
-        # Build base query - only search user's items
         base_query = FileSystemItem.query.filter_by(owner_id=user.id)
 
-        # Add text search on name (case-insensitive)
-        base_query = base_query.filter(FileSystemItem.name.ilike(f"%{query}%"))
+        from sqlalchemy import or_
 
-        # Filter by type if specified
+        search_conditions = [FileSystemItem.name.ilike(f"%{query}%")]
+
+        search_conditions.append(FileSystemItem.content_text.ilike(f"%{query}%"))
+
+        base_query = base_query.filter(or_(*search_conditions))
+
         if file_type in ["file", "folder"]:
             base_query = base_query.filter(FileSystemItem.type == file_type)
 
-        # Helper function to get all folder IDs recursively
         def get_folder_ids_recursive(folder_id):
-            """Get all folder IDs that are descendants of the given folder"""
             folder_ids = [folder_id]
-            subfolders = FileSystemItem.query.filter_by(
-                parent_id=folder_id, type="folder", owner_id=user.id
-            ).all()
+            subfolders = FileSystemItem.query.filter_by(parent_id=folder_id, type="folder", owner_id=user.id).all()
 
             for subfolder in subfolders:
                 folder_ids.extend(get_folder_ids_recursive(subfolder.id))
 
             return folder_ids
 
-        # Filter by parent folder if specified, otherwise search all folders
         if parent_id is not None:
-            # Verify the parent folder exists and belongs to the user
-            parent_folder = FileSystemItem.query.filter_by(
-                id=parent_id, owner_id=user.id, type="folder"
-            ).first()
+            parent_folder = FileSystemItem.query.filter_by(id=parent_id, owner_id=user.id, type="folder").first()
             if not parent_folder:
                 return jsonify({"error": "Parent folder not found"}), 404
 
-            # Search recursively within the parent folder and its subfolders
             searchable_folder_ids = get_folder_ids_recursive(parent_id)
-            base_query = base_query.filter(
-                FileSystemItem.parent_id.in_(searchable_folder_ids)
-            )
+            base_query = base_query.filter(FileSystemItem.parent_id.in_(searchable_folder_ids))
         else:
-            # Search in all folders recursively (global search)
-            # Get all folder IDs that belong to the user
-            all_folders = FileSystemItem.query.filter_by(
-                owner_id=user.id, type="folder"
-            ).all()
+            all_folders = FileSystemItem.query.filter_by(owner_id=user.id, type="folder").all()
 
-            # Include root level (parent_id = None) and all folders
-            searchable_folder_ids = [None]  # Root level
+            searchable_folder_ids = [None]
             for folder in all_folders:
                 searchable_folder_ids.append(folder.id)
 
-            # No additional filter needed - we're already searching user's items
-            # The search will naturally include items in all folders
-
-        # Order by name for consistent results
         base_query = base_query.order_by(FileSystemItem.name.asc())
 
-        # Get total count for pagination
         total_count = base_query.count()
 
-        # Apply pagination
         offset = (page - 1) * limit
         items = base_query.offset(offset).limit(limit).all()
 
-        # Calculate pagination info
         total_pages = (total_count + limit - 1) // limit
         has_next = page < total_pages
         has_prev = page > 1
 
-        # Convert items to dict
         results = [item.to_dict() for item in items]
 
         logger.info(
@@ -490,7 +468,48 @@ def search_files():
         )
 
     except Exception as e:
-        logger.error("[ERROR] Error searching files: %s", str(e))
+        logger.error("Error searching files: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@operations_bp.route("/filesystem/<int:item_id>/extract", methods=["POST"])
+@requires_auth
+def trigger_text_extraction(item_id):
+    try:
+        user = get_or_create_user(db, User)
+        item = FileSystemItem.query.filter_by(id=item_id, owner_id=user.id).first()
+
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        if item.type != "file":
+            return jsonify({"error": "Item is not a file"}), 400
+
+        item.content_extracted = False
+        item.extraction_error = None
+        item.content_text = None
+        db.session.commit()
+
+        try:
+            import requests
+
+            extraction_response = requests.post(
+                "http://localhost:6004/extract", json={"file_id": item.id, "file_path": item.path}, timeout=1
+            )
+            if extraction_response.status_code == 200:
+                logger.info("File %s queued for text extraction", item.id)
+                return jsonify({"message": "Text extraction queued", "file_id": item.id}), 200
+            else:
+                return (
+                    jsonify({"error": "Failed to queue extraction", "status_code": extraction_response.status_code}),
+                    502,
+                )
+        except Exception as e:
+            logger.error("Could not notify text extractor: %s", str(e))
+            return jsonify({"error": "Text extraction service unavailable"}), 503
+
+    except Exception as e:
+        logger.error("Error triggering extraction for %s: %s", item_id, str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -512,9 +531,7 @@ if TEST_MODE:
             db.create_all()
             logger.info("Created all tables")
 
-            test_user = User(
-                auth0_id="test|12345", email="test@example.com", name="Test User"
-            )
+            test_user = User(auth0_id="test|12345", email="test@example.com", name="Test User")
             db.session.add(test_user)
             db.session.commit()
             logger.info("Created test user (ID: %d)", test_user.id)
@@ -530,7 +547,7 @@ if TEST_MODE:
             )
 
         except Exception as e:
-            logger.error("[ERROR] Error resetting database: %s", str(e))
+            logger.error("Error resetting database: %s", str(e))
             db.session.rollback()
             return jsonify({"error": str(e)}), 500
 
@@ -550,6 +567,6 @@ if TEST_MODE:
             return jsonify({"message": "Database cleanup successful"}), 200
 
         except Exception as e:
-            logger.error("[ERROR] Error cleaning database: %s", str(e))
+            logger.error("Error cleaning database: %s", str(e))
             db.session.rollback()
             return jsonify({"error": str(e)}), 500
