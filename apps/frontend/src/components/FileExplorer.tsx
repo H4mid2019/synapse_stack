@@ -3,6 +3,7 @@ import type { FileSystemItem } from '../types';
 import { filesystemApi } from '../services/api';
 import { toast } from 'react-toastify';
 import { itemsActions } from '../store/itemsStore';
+import { SearchBar } from './SearchBar';
 
 interface FileExplorerProps {
   items: FileSystemItem[];
@@ -13,49 +14,57 @@ interface FileExplorerProps {
   isLoading?: boolean;
 }
 
-export const FileExplorer = ({ 
-  items, 
+export const FileExplorer = ({
+  items,
   currentFolderId,
   breadcrumb,
-  onDelete, 
+  onDelete,
   onNavigate,
-  isLoading = false 
+  isLoading = false,
 }: FileExplorerProps) => {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [renamingItemId, setRenamingItemId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [searchResults, setSearchResults] = useState<FileSystemItem[] | null>(
+    null
+  );
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-    
+
     try {
       const newFolder = await filesystemApi.create({
         name: newFolderName.trim(),
         type: 'folder',
-        parent_id: currentFolderId
+        parent_id: currentFolderId,
       });
-      
+
       itemsActions.addItem(newFolder);
       setNewFolderName('');
       setIsCreatingFolder(false);
       toast.success(`Folder "${newFolder.name}" created successfully!`);
     } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to create folder';
+      const errorMessage =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || 'Failed to create folder';
       toast.error(errorMessage);
       console.error('Failed to create folder:', err);
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-    
+
     setIsUploading(true);
     let successCount = 0;
-    
+
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -64,23 +73,27 @@ export const FileExplorer = ({
         if (currentFolderId !== null) {
           formData.append('parent_id', currentFolderId.toString());
         }
-        
+
         try {
           const uploadedFile = await filesystemApi.uploadFile(formData);
           itemsActions.addItem(uploadedFile);
           successCount++;
         } catch (err: unknown) {
-          const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to upload file';
+          const errorMessage =
+            (err as { response?: { data?: { error?: string } } })?.response
+              ?.data?.error || 'Failed to upload file';
           toast.error(`${file.name}: ${errorMessage}`);
           console.error(`Failed to upload ${file.name}:`, err);
         }
       }
-      
+
       // Show success message
       if (successCount > 0) {
-        toast.success(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}!`);
+        toast.success(
+          `Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}!`
+        );
       }
-      
+
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -92,7 +105,7 @@ export const FileExplorer = ({
 
   const handleDownload = async (item: FileSystemItem) => {
     if (item.type !== 'file') return;
-    
+
     try {
       const blob = await filesystemApi.downloadFile(item.id);
       const url = window.URL.createObjectURL(blob);
@@ -105,7 +118,9 @@ export const FileExplorer = ({
       window.URL.revokeObjectURL(url);
       toast.success(`Downloaded "${item.name}"`);
     } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to download file';
+      const errorMessage =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || 'Failed to download file';
       toast.error(errorMessage);
       console.error('Failed to download file:', err);
     }
@@ -123,13 +138,17 @@ export const FileExplorer = ({
     }
 
     try {
-      const updatedItem = await filesystemApi.update(itemId, { name: renameValue.trim() });
+      const updatedItem = await filesystemApi.update(itemId, {
+        name: renameValue.trim(),
+      });
       itemsActions.updateItem(updatedItem);
       setRenamingItemId(null);
       setRenameValue('');
       toast.success(`Renamed to "${updatedItem.name}"`);
     } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to rename item';
+      const errorMessage =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || 'Failed to rename item';
       toast.error(errorMessage);
       console.error('Failed to rename item:', err);
     }
@@ -143,11 +162,11 @@ export const FileExplorer = ({
   const formatFileSize = (bytes: number | null) => {
     if (bytes === null) return '';
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
@@ -155,9 +174,12 @@ export const FileExplorer = ({
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Determine which items to display
+  const displayItems = isSearchActive && searchResults ? searchResults : items;
+
   // Filter items by current folder
-  const folderItems = items.filter(item => item.type === 'folder');
-  const fileItems = items.filter(item => item.type === 'file');
+  const folderItems = displayItems.filter((item) => item.type === 'folder');
+  const fileItems = displayItems.filter((item) => item.type === 'file');
 
   if (isLoading) {
     return (
@@ -171,27 +193,65 @@ export const FileExplorer = ({
     <div className="space-y-6">
       <div className="border-b border-gray-200 pb-5">
         <h1 className="text-2xl font-bold text-gray-900">File Explorer</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage your files and folders</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Manage your files and folders
+        </p>
       </div>
-      
+
+      {/* Search Bar */}
+      <SearchBar
+        currentFolderId={currentFolderId}
+        onSearchResults={(results) => {
+          setSearchResults(results);
+          setIsSearchActive(results.length > 0);
+        }}
+        onClearSearch={() => {
+          setSearchResults(null);
+          setIsSearchActive(false);
+        }}
+      />
+
       <nav className="flex items-center space-x-2 text-sm text-gray-600">
-        <button 
-          onClick={() => onNavigate(null)}
-          className="text-sky-600 hover:text-sky-800 font-medium"
-        >
-          Home
-        </button>
-        {breadcrumb.map((folder) => (
-          <div key={folder.id} className="flex items-center space-x-2">
-            <span>/</span>
+        {isSearchActive ? (
+          <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-md">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <span className="font-medium">
+              Search Results ({displayItems.length})
+            </span>
+          </div>
+        ) : (
+          <>
             <button
-              onClick={() => onNavigate(folder.id)}
+              onClick={() => onNavigate(null)}
               className="text-sky-600 hover:text-sky-800 font-medium"
             >
-              {folder.name}
+              Home
             </button>
-          </div>
-        ))}
+            {breadcrumb.map((folder) => (
+              <div key={folder.id} className="flex items-center space-x-2">
+                <span>/</span>
+                <button
+                  onClick={() => onNavigate(folder.id)}
+                  className="text-sky-600 hover:text-sky-800 font-medium"
+                >
+                  {folder.name}
+                </button>
+              </div>
+            ))}
+          </>
+        )}
       </nav>
 
       <div className="flex flex-wrap gap-2">
@@ -199,12 +259,17 @@ export const FileExplorer = ({
           onClick={() => setIsCreatingFolder(true)}
           className="px-4 py-2 bg-sky-500 hover:bg-sky-700 text-white rounded-md flex items-center"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 mr-1"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
             <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
           </svg>
           New Folder
         </button>
-        
+
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
@@ -212,22 +277,47 @@ export const FileExplorer = ({
         >
           {isUploading ? (
             <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
               </svg>
               Uploading...
             </>
           ) : (
             <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-1"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
               Upload Files
             </>
           )}
         </button>
-        
+
         <input
           type="file"
           ref={fileInputRef}
@@ -276,14 +366,22 @@ export const FileExplorer = ({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {folderItems.map((item) => (
-          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+          <div
+            key={item.id}
+            className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+          >
             <div className="p-4">
               <div className="flex items-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-10 w-10 text-yellow-500"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
                   <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                 </svg>
               </div>
-              
+
               {renamingItemId === item.id ? (
                 <div className="mb-2">
                   <input
@@ -299,16 +397,16 @@ export const FileExplorer = ({
                   />
                 </div>
               ) : (
-                <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
+                <h3 className="font-medium text-gray-900 truncate">
+                  {item.name}
+                </h3>
               )}
-              
-              <div className="text-xs text-gray-500 mt-1">
-                Folder
-              </div>
+
+              <div className="text-xs text-gray-500 mt-1">Folder</div>
               <div className="text-xs text-gray-500 mt-1">
                 Created: {formatDate(item.created_at)}
               </div>
-              
+
               {renamingItemId === item.id ? (
                 <div className="flex gap-2 mt-3">
                   <button
@@ -351,14 +449,26 @@ export const FileExplorer = ({
         ))}
 
         {fileItems.map((item) => (
-          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+          <div
+            key={item.id}
+            className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+          >
             <div className="p-4">
               <div className="flex items-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-10 w-10 text-blue-500"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </div>
-              
+
               {renamingItemId === item.id ? (
                 <div className="mb-2">
                   <input
@@ -374,19 +484,19 @@ export const FileExplorer = ({
                   />
                 </div>
               ) : (
-                <h3 className="font-medium text-gray-900 truncate">{item.name}</h3>
+                <h3 className="font-medium text-gray-900 truncate">
+                  {item.name}
+                </h3>
               )}
-              
-              <div className="text-xs text-gray-500 mt-1">
-                {item.mime_type}
-              </div>
+
+              <div className="text-xs text-gray-500 mt-1">{item.mime_type}</div>
               <div className="text-xs text-gray-500 mt-1">
                 {formatFileSize(item.size)}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 Created: {formatDate(item.created_at)}
               </div>
-              
+
               {renamingItemId === item.id ? (
                 <div className="flex gap-2 mt-3">
                   <button
@@ -430,13 +540,30 @@ export const FileExplorer = ({
       </div>
 
       {/* Empty State */}
-      {items.length === 0 && !isCreatingFolder && (
+      {displayItems.length === 0 && !isCreatingFolder && (
         <div className="text-center py-12">
-          <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No items</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by uploading a file or creating a folder.</p>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">
+            {isSearchActive ? 'No search results' : 'No items'}
+          </h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {isSearchActive
+              ? 'Try a different search term or clear the search to browse files.'
+              : 'Get started by uploading a file or creating a folder.'}
+          </p>
         </div>
       )}
     </div>
