@@ -2,8 +2,6 @@
 Test script for text extractor standalone testing
 """
 
-import json
-
 import requests
 
 EXTRACTOR_URL = "http://localhost:6004"
@@ -116,7 +114,7 @@ def main():
         else:
             print("❌ Extractor health check failed")
             return
-    except:
+    except Exception:
         print("❌ Cannot connect to extractor - make sure it's running on port 6004")
         return
 

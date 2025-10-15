@@ -2,10 +2,8 @@
 Simple startup script for development with text extraction
 """
 
-import os
 import subprocess
 import sys
-import time
 
 
 def check_and_setup_database():

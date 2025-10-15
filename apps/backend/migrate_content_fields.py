@@ -7,11 +7,9 @@ import logging
 import os
 import sys
 
-# Add the backend directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from database import db
-from models import FileSystemItem
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ def upgrade_database():
             conn.execute(
                 db.text(
                     """
-                ALTER TABLE filesystem_items 
+                ALTER TABLE filesystem_items
                 ADD COLUMN IF NOT EXISTS content_text TEXT,
                 ADD COLUMN IF NOT EXISTS content_extracted BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS extraction_error VARCHAR(500)
@@ -53,8 +51,8 @@ def create_search_index():
             conn.execute(
                 db.text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_filesystem_content_search 
-                ON filesystem_items 
+                CREATE INDEX IF NOT EXISTS idx_filesystem_content_search
+                ON filesystem_items
                 USING GIN(to_tsvector('english', COALESCE(content_text, '')))
             """
                 )
@@ -64,8 +62,8 @@ def create_search_index():
             conn.execute(
                 db.text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_filesystem_name_search 
-                ON filesystem_items 
+                CREATE INDEX IF NOT EXISTS idx_filesystem_name_search
+                ON filesystem_items
                 USING GIN(to_tsvector('english', name))
             """
                 )

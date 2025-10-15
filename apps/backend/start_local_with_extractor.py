@@ -4,7 +4,6 @@ Starts all backend services including text extraction
 """
 
 import logging
-import os
 import signal
 import subprocess
 import sys
@@ -93,28 +92,23 @@ def start_service(name, config):
 
 def check_database():
     """Check if database is ready and has required tables"""
-    try:
-        # Use the same database config as the main app
-        import os
+    import os
+    import re
 
+    try:
         from dotenv import load_dotenv
+        import psycopg2
 
         load_dotenv()
         database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/flask_react_db")
 
-        # Parse the database URL
         if database_url.startswith("postgresql://"):
-            # Extract connection details from URL
-            import re
-
             match = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)", database_url)
             if not match:
                 logger.error("Invalid DATABASE_URL format")
                 return False
 
             user, password, host, port, dbname = match.groups()
-
-            import psycopg2
 
             conn = psycopg2.connect(host=host, database=dbname, user=user, password=password, port=port)
 
@@ -123,7 +117,7 @@ def check_database():
             cursor.execute(
                 """
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
+                    SELECT FROM information_schema.tables
                     WHERE table_name = 'filesystem_items'
                 );
             """
@@ -194,7 +188,7 @@ def main():
             for name, config in SERVICES.items():
                 future = executor.submit(start_service, name, config)
                 futures[name] = future
-                time.sleep(1)  # Stagger startup
+                time.sleep(1)
 
             logger.info("All services started! Available endpoints:")
             logger.info("- API Proxy: http://localhost:5000")

@@ -2,9 +2,6 @@
 Test the text extractor independently
 """
 
-import json
-import time
-
 import requests
 
 EXTRACTOR_URL = "http://localhost:6004"

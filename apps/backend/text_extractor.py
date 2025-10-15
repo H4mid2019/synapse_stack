@@ -2,13 +2,15 @@ import logging
 import os
 import queue
 import threading
-import time
 from io import BytesIO
 
-import requests
 from dotenv import load_dotenv
+from flask import Flask, jsonify, request
 from google.cloud import storage
 from sqlalchemy.exc import SQLAlchemyError
+
+from database import db
+from models import FileSystemItem
 
 load_dotenv()
 
@@ -18,9 +20,6 @@ try:
     HAS_PYPDF2 = True
 except ImportError:
     HAS_PYPDF2 = False
-
-from database import db
-from models import FileSystemItem
 
 logger = logging.getLogger(__name__)
 
@@ -217,27 +216,22 @@ def init_extraction_queue(app):
 
 
 def notify_file_uploaded(file_id, file_path=None):
-    global extraction_queue
     if extraction_queue:
         return extraction_queue.add_job(file_id, file_path)
     return False
 
 
 def start_extraction_service():
-    global extraction_queue
     if extraction_queue:
         extraction_queue.start()
         logger.info("Text extraction service started")
 
 
 def stop_extraction_service():
-    global extraction_queue
     if extraction_queue:
         extraction_queue.stop()
         logger.info("Text extraction service stopped")
 
-
-from flask import Flask, jsonify, request
 
 extraction_app = Flask(__name__)
 extraction_app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
@@ -278,7 +272,6 @@ def extract_file():
 
 @extraction_app.route("/health", methods=["GET"])
 def health_check():
-    global extraction_queue
     queue_size = extraction_queue.queue.qsize() if extraction_queue else 0
     return jsonify({"status": "healthy", "queue_size": queue_size}), 200
 
@@ -317,7 +310,7 @@ def test_extract_file(file_id):
         if not file_item:
             return jsonify({"error": "File not found"}), 404
 
-        if item.type != "file":
+        if file_item.type != "file":
             return jsonify({"error": "Item is not a file"}), 400
 
         file_path = get_file_path(file_id)
@@ -425,7 +418,7 @@ def list_files_for_testing():
                 try:
                     blob = bucket.blob(file_path)
                     exists = blob.exists()
-                except:
+                except Exception:
                     exists = False
             else:
                 exists = os.path.exists(file_path)
