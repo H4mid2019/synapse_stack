@@ -364,6 +364,121 @@ def download_file(item_id):
         return jsonify({"error": "Internal server error"}), 500
 
 
+@operations_bp.route("/filesystem/search", methods=["GET"])
+@requires_auth
+def search_files():
+    try:
+        user = get_or_create_user(db, User)
+
+        # Get search parameters from query string
+        query = request.args.get("q", "").strip()
+        file_type = request.args.get("type", "").strip()  # 'file' or 'folder' or both
+        parent_id = request.args.get(
+            "parent_id", type=int
+        )  # search within specific folder
+        page = request.args.get("page", 1, type=int)
+        limit = request.args.get("limit", 50, type=int)
+
+        # Validate parameters
+        if not query:
+            return jsonify({"error": "Search query is required"}), 400
+
+        if limit > 100:  # Prevent excessive results
+            limit = 100
+
+        if page < 1:
+            page = 1
+
+        # Build base query - only search user's items
+        base_query = FileSystemItem.query.filter_by(owner_id=user.id)
+
+        # Add text search on name (case-insensitive)
+        base_query = base_query.filter(FileSystemItem.name.ilike(f"%{query}%"))
+
+        # Filter by type if specified
+        if file_type in ["file", "folder"]:
+            base_query = base_query.filter(FileSystemItem.type == file_type)
+
+        # Filter by parent folder if specified
+        if parent_id is not None:
+            # Verify the parent folder exists and belongs to the user
+            parent_folder = FileSystemItem.query.filter_by(
+                id=parent_id, owner_id=user.id, type="folder"
+            ).first()
+            if not parent_folder:
+                return jsonify({"error": "Parent folder not found"}), 404
+
+            # Search recursively within the parent folder and its subfolders
+            def get_folder_ids_recursive(folder_id):
+                """Get all folder IDs that are descendants of the given folder"""
+                folder_ids = [folder_id]
+                subfolders = FileSystemItem.query.filter_by(
+                    parent_id=folder_id, type="folder", owner_id=user.id
+                ).all()
+
+                for subfolder in subfolders:
+                    folder_ids.extend(get_folder_ids_recursive(subfolder.id))
+
+                return folder_ids
+
+            searchable_folder_ids = get_folder_ids_recursive(parent_id)
+            base_query = base_query.filter(
+                FileSystemItem.parent_id.in_(searchable_folder_ids)
+            )
+
+        # Order by name for consistent results
+        base_query = base_query.order_by(FileSystemItem.name.asc())
+
+        # Get total count for pagination
+        total_count = base_query.count()
+
+        # Apply pagination
+        offset = (page - 1) * limit
+        items = base_query.offset(offset).limit(limit).all()
+
+        # Calculate pagination info
+        total_pages = (total_count + limit - 1) // limit
+        has_next = page < total_pages
+        has_prev = page > 1
+
+        # Convert items to dict
+        results = [item.to_dict() for item in items]
+
+        logger.info(
+            "Search completed: query='%s', type='%s', parent_id=%s, found %d items",
+            query,
+            file_type,
+            parent_id,
+            len(results),
+        )
+
+        return (
+            jsonify(
+                {
+                    "results": results,
+                    "pagination": {
+                        "current_page": page,
+                        "total_pages": total_pages,
+                        "total_items": total_count,
+                        "items_per_page": limit,
+                        "has_next": has_next,
+                        "has_prev": has_prev,
+                    },
+                    "query": query,
+                    "filters": {
+                        "type": file_type if file_type else None,
+                        "parent_id": parent_id,
+                    },
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        logger.error("[ERROR] Error searching files: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @operations_bp.route("/health", methods=["GET"])
 def health_check():
     return jsonify({"status": "healthy"}), 200

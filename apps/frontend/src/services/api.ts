@@ -1,7 +1,14 @@
 import axios from 'axios';
-import type { FileSystemItem, CreateFileSystemItemData, UpdateFileSystemItemData } from '../types';
+import type {
+  FileSystemItem,
+  CreateFileSystemItemData,
+  UpdateFileSystemItemData,
+  SearchParams,
+  SearchResult,
+} from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -34,9 +41,14 @@ api.interceptors.request.use(
 );
 
 export const filesystemApi = {
-  getAll: async (parent_id: number | null = null): Promise<{items: FileSystemItem[], breadcrumb: FileSystemItem[]}> => {
-    const response = await api.get<{items: FileSystemItem[], breadcrumb: FileSystemItem[]}>('/filesystem', {
-      params: { parent_id }
+  getAll: async (
+    parent_id: number | null = null
+  ): Promise<{ items: FileSystemItem[]; breadcrumb: FileSystemItem[] }> => {
+    const response = await api.get<{
+      items: FileSystemItem[];
+      breadcrumb: FileSystemItem[];
+    }>('/filesystem', {
+      params: { parent_id },
     });
     return response.data;
   },
@@ -51,7 +63,10 @@ export const filesystemApi = {
     return response.data;
   },
 
-  update: async (id: number, data: UpdateFileSystemItemData): Promise<FileSystemItem> => {
+  update: async (
+    id: number,
+    data: UpdateFileSystemItemData
+  ): Promise<FileSystemItem> => {
     const response = await api.put<FileSystemItem>(`/filesystem/${id}`, data);
     return response.data;
   },
@@ -61,11 +76,15 @@ export const filesystemApi = {
   },
 
   uploadFile: async (data: FormData): Promise<FileSystemItem> => {
-    const response = await api.post<FileSystemItem>('/filesystem/upload', data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post<FileSystemItem>(
+      '/filesystem/upload',
+      data,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   },
 
@@ -73,6 +92,32 @@ export const filesystemApi = {
     const response = await api.get(`/filesystem/${id}/download`, {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  search: async (params: SearchParams): Promise<SearchResult> => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('q', params.q);
+
+    if (params.type) {
+      searchParams.append('type', params.type);
+    }
+
+    if (params.parent_id !== undefined) {
+      searchParams.append('parent_id', params.parent_id.toString());
+    }
+
+    if (params.page !== undefined) {
+      searchParams.append('page', params.page.toString());
+    }
+
+    if (params.limit !== undefined) {
+      searchParams.append('limit', params.limit.toString());
+    }
+
+    const response = await api.get<SearchResult>(
+      `/filesystem/search?${searchParams.toString()}`
+    );
     return response.data;
   },
 
