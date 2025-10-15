@@ -114,6 +114,13 @@ def download(item_id):
     return proxy_request(OPERATIONS_SERVICE)
 
 
+@app.route("/api/filesystem/search", methods=["GET"])
+def search():
+    """Search files - route to operations"""
+    logger.info("[PROXY] GET /api/filesystem/search -> OPERATIONS")
+    return proxy_request(OPERATIONS_SERVICE)
+
+
 @app.route("/api/test/<path:subpath>", methods=["POST"])
 def test_endpoints(subpath):
     """Test endpoints to operations"""
