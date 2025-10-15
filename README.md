@@ -261,8 +261,13 @@ turbo.json             # Monorepo task runner
 - `GET /api/filesystem/{id}` - Get item details
 - `PUT /api/filesystem/{id}` - Rename item
 - `DELETE /api/filesystem/{id}` - Delete item (cascade)
-- `POST /api/filesystem/upload` - Upload file
+- `POST /api/filesystem/upload` - Upload PDF file (max 100MB)
 - `GET /api/filesystem/{id}/download` - Download file
+
+**File Upload Restrictions:**
+- Only PDF files allowed
+- Maximum file size: 100MB
+- Files validated for PDF format and content
 
 **System:**
 - `GET /api/health` - Health check
@@ -299,6 +304,18 @@ npm run preview      # Preview production build
 ```
 
 ## Testing
+
+**Setup Pre-commit Hooks (Recommended):**
+```bash
+# Install and setup pre-commit hooks
+./setup-precommit.sh    # Linux/Mac
+# OR
+setup-precommit.bat     # Windows
+
+# Hooks will now run automatically before each commit
+# To run manually: pre-commit run --all-files
+# To skip hooks: git commit --no-verify
+```
 
 **Run All Tests:**
 ```bash

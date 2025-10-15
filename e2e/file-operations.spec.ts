@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -44,7 +44,7 @@ test.describe('File Operations', () => {
     });
   });
 
-  test('should upload a file', async ({ page }) => {
+  test('should upload a PDF file successfully', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
@@ -62,10 +62,15 @@ test.describe('File Operations', () => {
     }
 
     const timestamp = Date.now();
-    const filename = `test-upload-${timestamp}.txt`;
-    const testContent = 'This is a test file for Playwright upload testing.';
+    const filename = `test-upload-${timestamp}.pdf`;
+    
+    // Use the test PDF file
+    const testPdfPath = join(__dirname, 'fixtures', 'test-document.pdf');
     const testFilePath = join(tmpdir(), filename);
-    writeFileSync(testFilePath, testContent);
+    
+    // Copy the PDF content to a temp file with timestamp name
+    const pdfContent = readFileSync(testPdfPath);
+    writeFileSync(testFilePath, pdfContent);
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);
@@ -76,6 +81,54 @@ test.describe('File Operations', () => {
     
     const fileCard = page.locator('.bg-white').filter({ hasText: filename });
     await expect(fileCard).toBeVisible();
+  });
+
+  test('should reject non-PDF file upload', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+
+    const timestamp = Date.now();
+    const filename = `test-reject-${timestamp}.txt`;
+    const testContent = 'This is a text file that should be rejected.';
+    const testFilePath = join(tmpdir(), filename);
+    writeFileSync(testFilePath, testContent);
+
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles(testFilePath);
+
+    await page.waitForTimeout(2000);
+
+    // Should show error message for non-PDF file
+    await expect(page.getByText(/only pdf files are allowed/i)).toBeVisible({ timeout: 5000 });
+    
+    // File should not appear in the list
+    const fileCard = page.locator('.bg-white').filter({ hasText: filename });
+    await expect(fileCard).not.toBeVisible();
+  });
+
+  test('should reject fake PDF file (wrong content)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+
+    const timestamp = Date.now();
+    const filename = `fake-pdf-${timestamp}.pdf`;
+    const fakeContent = 'This is not a real PDF file, just text with .pdf extension';
+    const testFilePath = join(tmpdir(), filename);
+    writeFileSync(testFilePath, fakeContent);
+
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles(testFilePath);
+
+    await page.waitForTimeout(2000);
+
+    // Should show error message for fake PDF
+    await expect(page.getByText(/not a valid pdf|pdf validation failed/i)).toBeVisible({ timeout: 5000 });
+    
+    // File should not appear in the list
+    const fileCard = page.locator('.bg-white').filter({ hasText: filename });
+    await expect(fileCard).not.toBeVisible();
   });
 
   test('should rename a folder', async ({ page }) => {
@@ -143,12 +196,14 @@ test.describe('File Operations', () => {
     await page.waitForTimeout(1000);
 
     const timestamp = Date.now();
-    const originalName = `original-name-${timestamp}.txt`;
-    const newName = `new-filename-${timestamp}.txt`;
+    const originalName = `original-name-${timestamp}.pdf`;
+    const newName = `new-filename-${timestamp}.pdf`;
 
-    const testContent = 'Test file for rename';
+    // Use the test PDF file
+    const testPdfPath = join(__dirname, 'fixtures', 'test-document.pdf');
     const testFilePath = join(tmpdir(), originalName);
-    writeFileSync(testFilePath, testContent);
+    const pdfContent = readFileSync(testPdfPath);
+    writeFileSync(testFilePath, pdfContent);
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);
@@ -199,11 +254,13 @@ test.describe('File Operations', () => {
     await page.waitForTimeout(1000);
 
     const timestamp = Date.now();
-    const filename = `file-to-delete-${timestamp}.txt`;
+    const filename = `file-to-delete-${timestamp}.pdf`;
 
-    const testContent = 'This file will be deleted';
+    // Use the test PDF file
+    const testPdfPath = join(__dirname, 'fixtures', 'test-document.pdf');
     const testFilePath = join(tmpdir(), filename);
-    writeFileSync(testFilePath, testContent);
+    const pdfContent = readFileSync(testPdfPath);
+    writeFileSync(testFilePath, pdfContent);
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);

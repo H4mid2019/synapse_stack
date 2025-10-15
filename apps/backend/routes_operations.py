@@ -1,5 +1,4 @@
 import logging
-import mimetypes
 import os
 from io import BytesIO
 
@@ -7,6 +6,20 @@ from flask import Blueprint, jsonify, request, send_file
 from google.cloud import storage
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
+
+try:
+    import magic
+
+    HAS_MAGIC = True
+except ImportError:
+    HAS_MAGIC = False
+
+try:
+    from PyPDF2 import PdfReader
+
+    HAS_PYPDF2 = True
+except ImportError:
+    HAS_PYPDF2 = False
 
 from auth import get_or_create_user, requires_auth
 from database import db
@@ -20,6 +33,54 @@ operations_bp = Blueprint("operations", __name__)
 UPLOAD_FOLDER = "uploads"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+# File upload configuration
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+ALLOWED_EXTENSIONS = {"pdf"}
+ALLOWED_MIME_TYPES = {"application/pdf"}
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def validate_pdf_content(file_content):
+    """Validate PDF using multiple methods for security"""
+    # Method 1: Check magic bytes (PDF signature)
+    if not file_content.startswith(b"%PDF-"):
+        return False, "File is not a valid PDF (invalid header)"
+
+    # Method 2: Use python-magic if available
+    if HAS_MAGIC:
+        mime = magic.from_buffer(file_content[:2048], mime=True)
+        if mime != "application/pdf":
+            return False, f"File MIME type is {mime}, expected application/pdf"
+
+    # Method 3: Try to parse with PyPDF2 if available
+    if HAS_PYPDF2:
+        try:
+            pdf_file = BytesIO(file_content)
+            reader = PdfReader(pdf_file)
+            # Try to access pages to ensure it's valid
+            page_count = len(reader.pages)
+            if page_count == 0:
+                return False, "PDF file appears to be empty or corrupted"
+        except Exception as e:
+            return False, f"PDF validation failed: {str(e)}"
+
+    return True, "Valid PDF file"
+
+
+def validate_file_size(file_content):
+    """Check if file size is within limits"""
+    size = len(file_content)
+    if size > MAX_FILE_SIZE:
+        size_mb = size / (1024 * 1024)
+        max_mb = MAX_FILE_SIZE / (1024 * 1024)
+        return False, f"File too large: {size_mb:.1f}MB (max {max_mb}MB)"
+    return True, "File size OK"
+
 
 TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
 
@@ -180,8 +241,17 @@ def upload_file():
         if file.filename == "":
             return jsonify({"error": "No file selected"}), 400
 
+        # Validate file extension
+        if not allowed_file(file.filename):
+            return jsonify({"error": "Only PDF files are allowed"}), 400
+
         parent_id = request.form.get("parent_id", type=int)
         filename = secure_filename(file.filename)
+
+        # Ensure filename has .pdf extension after secure_filename processing
+        if not filename.lower().endswith(".pdf"):
+            # Add .pdf if secure_filename removed it
+            filename = filename + ".pdf" if filename else "document.pdf"
 
         existing_item = FileSystemItem.query.filter_by(
             name=filename, parent_id=parent_id, owner_id=user.id
@@ -195,7 +265,19 @@ def upload_file():
                 400,
             )
 
+        # Read and validate file content
         file_content = file.read()
+
+        # Validate file size
+        size_valid, size_message = validate_file_size(file_content)
+        if not size_valid:
+            return jsonify({"error": size_message}), 400
+
+        # Validate PDF content
+        pdf_valid, pdf_message = validate_pdf_content(file_content)
+        if not pdf_valid:
+            return jsonify({"error": pdf_message}), 400
+
         file_size = len(file_content)
 
         item = FileSystemItem(
@@ -204,9 +286,7 @@ def upload_file():
             parent_id=parent_id,
             owner_id=user.id,
             size=file_size,
-            mime_type=file.content_type
-            or mimetypes.guess_type(filename)[0]
-            or "application/octet-stream",
+            mime_type="application/pdf",  # Always PDF since we validated it
         )
 
         db.session.add(item)
