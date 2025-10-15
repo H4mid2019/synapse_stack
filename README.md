@@ -92,7 +92,9 @@ SECRET_KEY=your-secret-key-here
 
 ```powershell
 cd apps/backend
-flask db upgrade
+python run_migration.py
+# Or with Flask CLI (requires FLASK_APP env var):
+$env:FLASK_APP="app_factory:create_app('operations')"; flask db upgrade
 ```
 
 ### Mac
@@ -168,7 +170,9 @@ SECRET_KEY=your-secret-key-here
 
 ```bash
 cd apps/backend
-flask db upgrade
+python run_migration.py
+# Or with Flask CLI:
+FLASK_APP="app_factory:create_app('operations')" flask db upgrade
 ```
 
 ## Architecture Overview
@@ -315,8 +319,8 @@ npm run dev          # Start Flask dev server
 npm run test         # Run pytest
 npm run lint         # Run flake8
 npm run format       # Format with black + isort
-flask db upgrade     # Apply migrations
-flask db migrate     # Generate migration
+python run_migration.py        # Apply migrations
+FLASK_APP="app_factory:create_app('operations')" flask db migrate -m "description"  # Generate migration
 ```
 
 **Frontend (apps/frontend):**
@@ -449,7 +453,8 @@ Use CockroachDB for production (free tier available):
    ```
 4. Run migrations:
    ```bash
-   flask db upgrade
+   python add_search_columns.py  # Adds search columns (run once)
+   python run_migration.py        # Run Flask-Migrate migrations
    ```
 
 See `docs_local/COCKROACHDB_SETUP.md` for details.
