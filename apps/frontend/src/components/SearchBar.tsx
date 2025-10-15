@@ -25,6 +25,14 @@ export const SearchBar = ({
   const [totalResults, setTotalResults] = useState(0);
   const searchTimeoutRef = useRef<number | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const onSearchResultsRef = useRef(onSearchResults);
+  const onClearSearchRef = useRef(onClearSearch);
+
+  // Update refs when props change
+  useEffect(() => {
+    onSearchResultsRef.current = onSearchResults;
+    onClearSearchRef.current = onClearSearch;
+  }, [onSearchResults, onClearSearch]);
 
   const performSearch = useCallback(
     async (query: string, page = 1) => {
@@ -32,7 +40,7 @@ export const SearchBar = ({
         setSearchResults([]);
         setShowResults(false);
         setTotalResults(0);
-        onClearSearch?.();
+        onClearSearchRef.current?.();
         return;
       }
 
@@ -62,7 +70,7 @@ export const SearchBar = ({
         setShowResults(true);
 
         // Notify parent component about search results
-        onSearchResults?.(result.results);
+        onSearchResultsRef.current?.(result.results);
       } catch (error) {
         console.error('Search failed:', error);
         toast.error('Search failed. Please try again.');
@@ -72,7 +80,7 @@ export const SearchBar = ({
         setIsSearching(false);
       }
     },
-    [searchType, currentFolderId, onSearchResults, onClearSearch]
+    [searchType, currentFolderId]
   );
 
   // Debounced search
@@ -113,7 +121,7 @@ export const SearchBar = ({
     setShowResults(false);
     setTotalResults(0);
     setCurrentPage(1);
-    onClearSearch?.();
+    onClearSearchRef.current?.();
   };
 
   const handleLoadMore = () => {

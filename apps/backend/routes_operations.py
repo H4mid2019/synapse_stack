@@ -399,7 +399,20 @@ def search_files():
         if file_type in ["file", "folder"]:
             base_query = base_query.filter(FileSystemItem.type == file_type)
 
-        # Filter by parent folder if specified
+        # Helper function to get all folder IDs recursively
+        def get_folder_ids_recursive(folder_id):
+            """Get all folder IDs that are descendants of the given folder"""
+            folder_ids = [folder_id]
+            subfolders = FileSystemItem.query.filter_by(
+                parent_id=folder_id, type="folder", owner_id=user.id
+            ).all()
+
+            for subfolder in subfolders:
+                folder_ids.extend(get_folder_ids_recursive(subfolder.id))
+
+            return folder_ids
+
+        # Filter by parent folder if specified, otherwise search all folders
         if parent_id is not None:
             # Verify the parent folder exists and belongs to the user
             parent_folder = FileSystemItem.query.filter_by(
@@ -409,22 +422,24 @@ def search_files():
                 return jsonify({"error": "Parent folder not found"}), 404
 
             # Search recursively within the parent folder and its subfolders
-            def get_folder_ids_recursive(folder_id):
-                """Get all folder IDs that are descendants of the given folder"""
-                folder_ids = [folder_id]
-                subfolders = FileSystemItem.query.filter_by(
-                    parent_id=folder_id, type="folder", owner_id=user.id
-                ).all()
-
-                for subfolder in subfolders:
-                    folder_ids.extend(get_folder_ids_recursive(subfolder.id))
-
-                return folder_ids
-
             searchable_folder_ids = get_folder_ids_recursive(parent_id)
             base_query = base_query.filter(
                 FileSystemItem.parent_id.in_(searchable_folder_ids)
             )
+        else:
+            # Search in all folders recursively (global search)
+            # Get all folder IDs that belong to the user
+            all_folders = FileSystemItem.query.filter_by(
+                owner_id=user.id, type="folder"
+            ).all()
+
+            # Include root level (parent_id = None) and all folders
+            searchable_folder_ids = [None]  # Root level
+            for folder in all_folders:
+                searchable_folder_ids.append(folder.id)
+
+            # No additional filter needed - we're already searching user's items
+            # The search will naturally include items in all folders
 
         # Order by name for consistent results
         base_query = base_query.order_by(FileSystemItem.name.asc())
