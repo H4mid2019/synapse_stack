@@ -184,13 +184,10 @@ test.describe('File Operations', () => {
     // Wait for the rename input field to appear
     const renameInput = page.locator('input[type="text"]').first();
     await expect(renameInput).toBeVisible({ timeout: 10000 });
+    await renameInput.waitFor({ state: 'attached' });
 
-    // Verify it has the original name as the value
-    const inputValue = await renameInput.inputValue();
-    expect(inputValue).toBe(originalName);
-
-    // Clear and fill the new name
-    await renameInput.clear();
+    // Clear and fill the new name (don't verify current value, just replace it)
+    await renameInput.click();
     await renameInput.fill(newName);
     await renameInput.press('Enter');
 

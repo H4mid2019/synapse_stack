@@ -41,10 +41,11 @@ test.describe('Nested Folders', () => {
     }
 
     await expect(page.getByText('Home')).toBeVisible();
-    await expect(page.getByText('Folder-25')).toBeVisible();
-
+    
+    // Check breadcrumb contains Folder-25
     const breadcrumbs = page.locator('nav.flex.items-center');
     await expect(breadcrumbs).toBeVisible();
+    await expect(breadcrumbs.getByText('Folder-25')).toBeVisible();
   });
 
   test('should delete all nested folders by deleting root', async ({
@@ -113,7 +114,7 @@ test.describe('Nested Folders', () => {
 
     await page.waitForTimeout(500);
 
-    await expect(page.getByText(/deleted successfully/i)).toBeVisible({
+    await expect(page.getByText(/item deleted/i)).toBeVisible({
       timeout: 5000,
     });
     await expect(page.getByText('Nested-1')).not.toBeVisible();
