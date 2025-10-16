@@ -6,6 +6,17 @@ Full-stack file management system with Flask backend and React frontend in a Tur
 
 [synapse-stack.darabi.website](https://synapse-stack.darabi.website/)
 
+## Key Features
+
+- **PDF File Management** - Upload, organize, and download PDF files
+- **Smart Search** - Search by filename and PDF text content
+- **Automatic Text Extraction** - PDFs are processed automatically for searchable content
+- **Folder Organization** - Create nested folder structures up to 25 levels deep
+- **Real-time Updates** - Instant UI updates using Preact Signals
+- **Multi-Service Architecture** - Scalable microservices design with load balancing
+- **Auth0 Integration** - Secure authentication and authorization
+- **Production Ready** - CI/CD pipeline with automated testing and Docker deployment
+
 ## Quick Navigation
 
 - [Quick Start](#quick-start) - Get running in 5 minutes
@@ -178,11 +189,12 @@ FLASK_APP="app_factory:create_app('operations')" flask db upgrade
 ## Architecture Overview
 
 **Multi-Service Backend:**
-The backend runs 4 separate Flask instances in production:
+The backend runs 5 separate Flask instances in production:
 
 - 2x READ services (GET requests, load balanced)
 - 1x WRITE service (POST requests)
 - 1x OPERATIONS service (PUT/DELETE requests)
+- 1x TEXT EXTRACTOR service (PDF text extraction)
 
 All services share the same PostgreSQL/CockroachDB database. Nginx routes requests based on HTTP method.
 
@@ -196,6 +208,7 @@ graph TB
         Read2[READ Service 2<br/>GET requests]
         Write[WRITE Service<br/>POST requests]
         Ops[OPERATIONS Service<br/>PUT/DELETE requests]
+        Extractor[TEXT EXTRACTOR Service<br/>PDF text extraction]
         DB[(PostgreSQL/<br/>CockroachDB)]
     end
 
@@ -204,6 +217,7 @@ graph TB
         ReadDev[READ Service<br/>Port 6001]
         WriteDev[WRITE Service<br/>Port 6002]
         OpsDev[OPERATIONS Service<br/>Port 6003]
+        ExtractorDev[TEXT EXTRACTOR Service<br/>Port 6004]
         DBDev[(PostgreSQL<br/>Port 5432)]
     end
 
@@ -219,19 +233,26 @@ graph TB
     Proxy -->|POST| WriteDev
     Proxy -->|PUT/DELETE| OpsDev
 
+    Ops -->|Extract PDF Text| Extractor
+    OpsDev -->|Extract PDF Text| ExtractorDev
+
     Read1 --> DB
     Read2 --> DB
     Write --> DB
     Ops --> DB
+    Extractor --> DB
 
     ReadDev --> DBDev
     WriteDev --> DBDev
     OpsDev --> DBDev
+    ExtractorDev --> DBDev
 
     style Nginx fill:#4CAF50
     style Proxy fill:#2196F3
     style DB fill:#FF9800
     style DBDev fill:#FF9800
+    style Extractor fill:#9C27B0
+    style ExtractorDev fill:#9C27B0
 ```
 
 **Local Development:**
@@ -240,6 +261,8 @@ Single proxy routes to all backend services running on different ports.
 **Database:**
 
 - Tables: users, filesystem_items, file_permissions
+- Search columns: name (VARCHAR), content_text (TEXT) for full-text search
+- PDF extraction tracking: content_extracted (BOOLEAN), extraction_error (VARCHAR)
 - Unique constraint per user: prevents duplicate filenames in same folder
 - Cascade delete: deleting folder removes all nested items
 - See `docs_local/` for detailed architecture docs
@@ -287,12 +310,27 @@ turbo.json             # Monorepo task runner
 - `DELETE /api/filesystem/{id}` - Delete item (cascade)
 - `POST /api/filesystem/upload` - Upload PDF file (max 100MB)
 - `GET /api/filesystem/{id}/download` - Download file
+- `GET /api/filesystem/search` - Search files and folders (query params: q, type, page, limit)
+
+**Search Parameters:**
+
+- `q` (required) - Search query text
+- `type` (optional) - Filter by type: "file" or "folder"
+- `page` (optional) - Page number (default: 1)
+- `limit` (optional) - Results per page (default: 50, max: 100)
+
+**Search Features:**
+
+- Searches file/folder names
+- Searches PDF text content (extracted automatically on upload)
+- Returns paginated results with metadata
 
 **File Upload Restrictions:**
 
 - Only PDF files allowed
 - Maximum file size: 100MB
 - Files validated for PDF format and content
+- Text automatically extracted from PDFs for search functionality
 
 **System:**
 

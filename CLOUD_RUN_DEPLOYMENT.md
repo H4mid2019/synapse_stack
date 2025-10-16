@@ -88,6 +88,14 @@ gcloud run deploy flask-operations \
   --allow-unauthenticated \
   --set-env-vars="SERVICE_TYPE=operations" \
   --max-instances=30
+
+# TEXT EXTRACTOR service
+gcloud run deploy flask-text-extractor \
+  --image=hamid2019/flask-react-backend:latest \
+  --region=us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="SERVICE_TYPE=text_extractor" \
+  --max-instances=10
 ```
 
 **Deploy frontend:**
@@ -112,7 +120,19 @@ gcloud run services update flask-read \
   --set-env-vars="DATABASE_URL=your-cockroachdb-url,SECRET_KEY=your-secret,AUTH0_DOMAIN=your-auth0-domain,AUTH0_AUDIENCE=your-audience,GCS_BUCKET_NAME=your-bucket"
 ```
 
-Repeat for `flask-write` and `flask-operations`.
+Repeat for `flask-write`, `flask-operations`, and `flask-text-extractor`.
+
+**Important: Set TEXT_EXTRACTOR_URL for operations service:**
+
+```bash
+# After deploying text-extractor, get its URL
+TEXT_EXTRACTOR_URL=$(gcloud run services describe flask-text-extractor --region=us-central1 --format='value(status.url)')
+
+# Update operations service to use text-extractor
+gcloud run services update flask-operations \
+  --region=us-central1 \
+  --set-env-vars="TEXT_EXTRACTOR_URL=${TEXT_EXTRACTOR_URL}"
+```
 
 **CockroachDB SSL Certificate Options:**
 
@@ -160,6 +180,8 @@ gcloud run services update flask-frontend \
 
 Cloud Run gives you separate URLs for each service, but you need one URL that routes requests like nginx does.
 
+**Important**: The text-extractor service is called internally by the operations service, so it doesn't need to be exposed through the load balancer. Only the read, write, and operations services need public routing.
+
 **Create Load Balancer:**
 
 1. Go to Google Cloud Console > Network Services > Load Balancing
@@ -169,6 +191,7 @@ Cloud Run gives you separate URLs for each service, but you need one URL that ro
    - POST requests → flask-write service
    - PUT/DELETE requests → flask-operations service
    - Frontend → flask-frontend service
+   - **Note**: flask-text-extractor is internal (called by operations service)
 
 **Or use this script:**
 
@@ -247,6 +270,7 @@ gcloud compute ssl-certificates create flask-app-ssl \
 - READ service: Up to 50 instances (handles most traffic)
 - WRITE service: Up to 20 instances (file uploads)
 - OPERATIONS service: Up to 30 instances (file operations)
+- TEXT EXTRACTOR service: Up to 10 instances (PDF text extraction)
 - Frontend: Up to 10 instances (static files)
 
 **Cost estimate for 1000 concurrent users:**
