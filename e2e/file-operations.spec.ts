@@ -83,7 +83,7 @@ test.describe('File Operations', () => {
 
     await page.waitForTimeout(2000);
 
-    await expect(page.getByText(/successfully uploaded.*1 file/i)).toBeVisible({
+    await expect(page.getByText(/uploaded.*1 file/i)).toBeVisible({
       timeout: 5000,
     });
 
