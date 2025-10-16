@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request, send_file
 from google.cloud import storage
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
-
+import requests
 try:
     import magic
 
@@ -74,6 +74,9 @@ def validate_file_size(file_content):
 
 
 TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
+
+# Text extraction service URL (different in Docker vs local)
+TEXT_EXTRACTOR_URL = os.getenv("TEXT_EXTRACTOR_URL", "http://localhost:6004")
 
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 USE_GCS = GCS_BUCKET_NAME is not None
@@ -295,7 +298,7 @@ def upload_file():
 
             logger.info("Attempting to notify text extractor for file %s", item.id)
             extraction_response = requests.post(
-                "http://localhost:6004/extract",
+                f"{TEXT_EXTRACTOR_URL}/extract",
                 json={"file_id": item.id, "file_path": file_path},
                 timeout=5,
             )
@@ -491,10 +494,8 @@ def trigger_text_extraction(item_id):
         db.session.commit()
 
         try:
-            import requests
-
             extraction_response = requests.post(
-                "http://localhost:6004/extract", json={"file_id": item.id, "file_path": item.path}, timeout=1
+                f"{TEXT_EXTRACTOR_URL}/extract", json={"file_id": item.id, "file_path": item.path}, timeout=1
             )
             if extraction_response.status_code == 200:
                 logger.info("File %s queued for text extraction", item.id)

@@ -403,6 +403,10 @@ TEST_MODE=false                    # Set to true to bypass Auth0
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_AUDIENCE=your-api-identifier
 
+# Text Extractor Service URL
+TEXT_EXTRACTOR_URL=http://localhost:6004                    # Local dev
+# TEXT_EXTRACTOR_URL=http://text-extractor:6004            # Docker Compose (use service name)
+
 # Optional: Google Cloud Storage for file uploads
 GCS_BUCKET_NAME=your-bucket-name   # Leave empty to use local storage
 GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
