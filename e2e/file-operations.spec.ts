@@ -314,7 +314,7 @@ test.describe('File Operations', () => {
 
     await page.waitForTimeout(500);
 
-    await expect(page.getByText(/deleted successfully/i)).toBeVisible({
+    await expect(page.getByText(/item deleted/i)).toBeVisible({
       timeout: 5000,
     });
     await expect(page.getByText(filename)).not.toBeVisible();
