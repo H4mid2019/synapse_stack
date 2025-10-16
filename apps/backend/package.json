@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "python start_dev_simple.py",
-    "dev:basic": "python start_local.py",
     "dev:extractor": "python text_extractor.py",
-    "dev:single": "python main.py",
     "test": "python -m pytest tests/ -v",
     "lint": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120",
     "lint:check": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120 --count --statistics",
