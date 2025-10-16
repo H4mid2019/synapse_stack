@@ -7,6 +7,7 @@ from google.cloud import storage
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 import requests
+
 try:
     import magic
 

@@ -6,7 +6,7 @@ from flask_migrate import upgrade
 from app_factory import create_app
 
 # Create the operations app (has full database access)
-app = create_app('operations')
+app = create_app("operations")
 
 with app.app_context():
     print("Running database migrations...")
