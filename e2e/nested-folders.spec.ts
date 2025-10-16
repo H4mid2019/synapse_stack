@@ -47,6 +47,76 @@ test.describe('Nested Folders', () => {
     await expect(breadcrumbs.getByText('Folder-4')).toBeVisible();
   });
 
+  test('should navigate using breadcrumb links', async ({ page }) => {
+    test.setTimeout(60000);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    for (let i = 1; i <= 4; i++) {
+      const folderName = `BreadcrumbTest-${i}`;
+
+      const newFolderButton = page.getByRole('button', { name: /new folder/i });
+      await newFolderButton.waitFor({ state: 'visible', timeout: 10000 });
+      await newFolderButton.click();
+
+      const input = page.getByPlaceholder(/folder name/i);
+      await input.fill(folderName);
+
+      const createButton = page.getByRole('button', { name: /create/i });
+      await createButton.click();
+
+      await page.waitForTimeout(500);
+
+      await expect(page.getByText(`${folderName}`).first()).toBeVisible({
+        timeout: 5000,
+      });
+
+      const folderCard = page
+        .locator('.bg-white')
+        .filter({ hasText: folderName })
+        .first();
+      const openButton = folderCard.getByRole('button', { name: 'Open' });
+      await openButton.click();
+
+      await page.waitForTimeout(500);
+    }
+
+    const breadcrumbs = page.locator('nav.flex.items-center');
+    await expect(breadcrumbs).toBeVisible();
+    await expect(breadcrumbs.getByText('BreadcrumbTest-4')).toBeVisible();
+
+    const breadcrumbTest2 = breadcrumbs.getByRole('button', {
+      name: 'BreadcrumbTest-2',
+    });
+    await breadcrumbTest2.click();
+    await page.waitForTimeout(1000);
+
+    await expect(breadcrumbs.getByText('BreadcrumbTest-2')).toBeVisible();
+    await expect(breadcrumbs.getByText('BreadcrumbTest-3')).not.toBeVisible();
+    await expect(breadcrumbs.getByText('BreadcrumbTest-4')).not.toBeVisible();
+
+    const folderCard3 = page
+      .locator('.bg-white')
+      .filter({ hasText: 'BreadcrumbTest-3' })
+      .first();
+    await expect(folderCard3).toBeVisible();
+
+    const homeButton = breadcrumbs.getByRole('button', { name: 'Home' });
+    await homeButton.click();
+    await page.waitForTimeout(1000);
+
+    await expect(breadcrumbs.getByText('BreadcrumbTest-1')).not.toBeVisible();
+    await expect(breadcrumbs.getByText('BreadcrumbTest-2')).not.toBeVisible();
+
+    const rootFolder = page
+      .locator('.bg-white')
+      .filter({ hasText: 'BreadcrumbTest-1' })
+      .first();
+    await expect(rootFolder).toBeVisible();
+  });
+
   test('should delete all nested folders by deleting root', async ({
     page,
   }) => {
