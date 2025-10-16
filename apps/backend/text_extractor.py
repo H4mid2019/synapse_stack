@@ -234,9 +234,22 @@ def stop_extraction_service():
 
 
 extraction_app = Flask(__name__)
-extraction_app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/flask_react_db"
-)
+
+# Use cockroachdb:// scheme for CockroachDB to ensure proper dialect is used
+database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/flask_react_db")
+
+# CockroachDB compatibility: Use the cockroachdb-specific dialect
+if database_url.startswith("cockroachdb://"):
+    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    extraction_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "connect_args": {
+            "application_name": "text_extractor"
+        }
+    }
+elif database_url.startswith("postgresql://"):
+    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
 db.init_app(extraction_app)
 
