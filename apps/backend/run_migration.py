@@ -2,7 +2,6 @@
 """
 Simple migration runner for production
 """
-import os
 from flask_migrate import upgrade
 from app_factory import create_app
 
