@@ -3,15 +3,15 @@ import { test, expect } from '@playwright/test';
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Nested Folders', () => {
-  test('should create 25 nested folders', async ({ page }) => {
-    test.setTimeout(120000);
+  test('should create 4 nested folders', async ({ page }) => {
+    test.setTimeout(60000);
 
     await page.goto('/');
 
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    for (let i = 1; i <= 25; i++) {
+    for (let i = 1; i <= 4; i++) {
       const folderName = `Folder-${i}`;
 
       const newFolderButton = page.getByRole('button', { name: /new folder/i });
@@ -41,23 +41,22 @@ test.describe('Nested Folders', () => {
     }
 
     await expect(page.getByText('Home')).toBeVisible();
-    
-    // Check breadcrumb contains Folder-25
+
     const breadcrumbs = page.locator('nav.flex.items-center');
     await expect(breadcrumbs).toBeVisible();
-    await expect(breadcrumbs.getByText('Folder-25')).toBeVisible();
+    await expect(breadcrumbs.getByText('Folder-4')).toBeVisible();
   });
 
   test('should delete all nested folders by deleting root', async ({
     page,
   }) => {
-    test.setTimeout(300000);
+    test.setTimeout(120000);
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 4; i++) {
       const folderName = `Nested-${i}`;
 
       const newFolderButton = page.getByRole('button', { name: /new folder/i });

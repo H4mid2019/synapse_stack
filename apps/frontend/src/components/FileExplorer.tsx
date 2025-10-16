@@ -225,22 +225,34 @@ export const FileExplorer = ({
         ) : (
           <>
             <button
-              onClick={() => onNavigate(null)}
+              onClick={() => {
+                if (currentFolderId !== null) onNavigate(null);
+              }}
+              aria-current={currentFolderId === null ? 'page' : undefined}
               className="text-sky-600 hover:text-sky-800 font-medium"
             >
               Home
             </button>
-            {breadcrumb.map((folder) => (
-              <div key={folder.id} className="flex items-center space-x-2">
-                <span>/</span>
-                <button
-                  onClick={() => onNavigate(folder.id)}
-                  className="text-sky-600 hover:text-sky-800 font-medium"
-                >
-                  {folder.name}
-                </button>
-              </div>
-            ))}
+            {breadcrumb.map((folder) => {
+              const folderId = Number(folder.id);
+              return (
+                <div key={folderId} className="flex items-center space-x-2">
+                  <span>/</span>
+                  <button
+                    aria-current={
+                      folderId === currentFolderId ? 'page' : undefined
+                    }
+                    onClick={() => {
+                      if (folderId === currentFolderId) return;
+                      onNavigate(folderId);
+                    }}
+                    className="text-sky-600 hover:text-sky-800 font-medium"
+                  >
+                    {folder.name}
+                  </button>
+                </div>
+              );
+            })}
           </>
         )}
       </nav>

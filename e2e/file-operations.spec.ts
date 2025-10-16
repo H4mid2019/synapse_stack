@@ -81,10 +81,10 @@ test.describe('File Operations', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);
 
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     await expect(page.getByText(/uploaded.*1 file/i)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     const fileCard = page.locator('.bg-white').filter({ hasText: filename });
@@ -225,13 +225,17 @@ test.describe('File Operations', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);
 
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(3000);
+
+    await expect(page.getByText(/uploaded.*1 file/i)).toBeVisible({
+      timeout: 10000,
+    });
 
     const fileCard = page
       .locator('.bg-white')
       .filter({ hasText: originalName })
       .first();
-    await expect(fileCard).toBeVisible();
+    await expect(fileCard).toBeVisible({ timeout: 5000 });
 
     // Scroll the file card into view
     await fileCard.scrollIntoViewIfNeeded();
@@ -287,13 +291,17 @@ test.describe('File Operations', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(testFilePath);
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
+
+    await expect(page.getByText(/uploaded.*1 file/i)).toBeVisible({
+      timeout: 10000,
+    });
 
     const fileCard = page
       .locator('.bg-white')
       .filter({ hasText: filename })
       .first();
-    await expect(fileCard).toBeVisible();
+    await expect(fileCard).toBeVisible({ timeout: 5000 });
 
     const deleteButton = fileCard.getByRole('button', { name: 'Delete' });
     await deleteButton.click();
