@@ -2,8 +2,8 @@
 """
 Simple migration runner for production
 """
-from flask_migrate import upgrade
 from app_factory import create_app
+from flask_migrate import upgrade
 
 # Create the operations app (has full database access)
 app = create_app("operations")

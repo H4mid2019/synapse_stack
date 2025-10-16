@@ -2,11 +2,11 @@ import logging
 import os
 from io import BytesIO
 
+import requests
 from flask import Blueprint, jsonify, request, send_file
 from google.cloud import storage
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
-import requests
 
 try:
     import magic

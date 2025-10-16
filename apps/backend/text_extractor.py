@@ -4,13 +4,12 @@ import queue
 import threading
 from io import BytesIO
 
+from database import db
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from google.cloud import storage
-from sqlalchemy.exc import SQLAlchemyError
-
-from database import db
 from models import FileSystemItem
+from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 

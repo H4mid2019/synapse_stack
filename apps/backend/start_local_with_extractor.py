@@ -96,8 +96,8 @@ def check_database():
     import re
 
     try:
-        from dotenv import load_dotenv
         import psycopg2
+        from dotenv import load_dotenv
 
         load_dotenv()
         database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/flask_react_db")
