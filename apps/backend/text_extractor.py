@@ -235,21 +235,25 @@ def stop_extraction_service():
 
 extraction_app = Flask(__name__)
 
-# Use cockroachdb:// scheme for CockroachDB to ensure proper dialect is used
 database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/flask_react_db")
 
-# CockroachDB compatibility: Use the cockroachdb-specific dialect
+# CockroachDB URI conversion (same logic as app_factory.py)
 if database_url.startswith("cockroachdb://"):
-    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    database_url = database_url.replace("cockroachdb://", "cockroachdb+psycopg2://")
+elif "cockroachlabs.cloud" in database_url or os.getenv("USE_COCKROACHDB", "").lower() == "true":
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "cockroachdb+psycopg2://")
+
+extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+extraction_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+if "cockroachdb" in database_url:
     extraction_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "connect_args": {
-            "application_name": "text_extractor"
-        }
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
     }
-elif database_url.startswith("postgresql://"):
-    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-else:
-    extraction_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
 db.init_app(extraction_app)
 
