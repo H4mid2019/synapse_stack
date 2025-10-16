@@ -15,6 +15,7 @@ test.describe('Nested Folders', () => {
       const folderName = `Folder-${i}`;
 
       const newFolderButton = page.getByRole('button', { name: /new folder/i });
+      await newFolderButton.waitFor({ state: 'visible', timeout: 10000 });
       await newFolderButton.click();
 
       const input = page.getByPlaceholder(/folder name/i);
@@ -36,7 +37,7 @@ test.describe('Nested Folders', () => {
       const openButton = folderCard.getByRole('button', { name: 'Open' });
       await openButton.click();
 
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
     }
 
     await expect(page.getByText('Home')).toBeVisible();
@@ -59,6 +60,7 @@ test.describe('Nested Folders', () => {
       const folderName = `Nested-${i}`;
 
       const newFolderButton = page.getByRole('button', { name: /new folder/i });
+      await newFolderButton.waitFor({ state: 'visible', timeout: 10000 });
       await newFolderButton.click();
 
       const input = page.getByPlaceholder(/folder name/i);
@@ -79,7 +81,7 @@ test.describe('Nested Folders', () => {
         .getByRole('button', { name: /open/i });
       await openButton.click();
 
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
     }
 
     const homeButton = page.getByRole('button', { name: 'Home' });
