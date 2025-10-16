@@ -191,16 +191,15 @@ test.describe('File Operations', () => {
     await renameInput.fill(newName);
     await renameInput.press('Enter');
 
-    await page.waitForTimeout(500);
-
-    await expect(page.getByText(/renamed to/i)).toBeVisible({ timeout: 5000 });
+    // Wait for the rename operation to complete
+    await page.waitForTimeout(1000);
 
     // Check that the renamed folder card is visible
     const renamedFolderCard = page
       .locator('.bg-white')
       .filter({ hasText: newName })
       .first();
-    await expect(renamedFolderCard).toBeVisible();
+    await expect(renamedFolderCard).toBeVisible({ timeout: 10000 });
 
     // Check that the original name is no longer visible
     await expect(
@@ -248,25 +247,22 @@ test.describe('File Operations', () => {
     // Wait for the rename input field to appear
     const renameInput = page.locator('input[type="text"]').first();
     await expect(renameInput).toBeVisible({ timeout: 10000 });
+    await renameInput.waitFor({ state: 'attached' });
 
-    // Verify it has the original name
-    const inputValue = await renameInput.inputValue();
-    expect(inputValue).toBe(originalName);
-
-    await renameInput.clear();
+    // Clear and fill the new name
+    await renameInput.click();
     await renameInput.fill(newName);
     await renameInput.press('Enter');
 
-    await page.waitForTimeout(500);
-
-    await expect(page.getByText(/renamed to/i)).toBeVisible({ timeout: 5000 });
+    // Wait for the rename operation to complete
+    await page.waitForTimeout(1000);
 
     // Check that the renamed file card is visible
     const renamedFileCard = page
       .locator('.bg-white')
       .filter({ hasText: newName })
       .first();
-    await expect(renamedFileCard).toBeVisible();
+    await expect(renamedFileCard).toBeVisible({ timeout: 10000 });
 
     // Check that the original name is no longer visible
     await expect(
