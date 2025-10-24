@@ -10,6 +10,7 @@ from flask import Flask, jsonify, request
 from google.cloud import storage
 from models import FileSystemItem
 from sqlalchemy.exc import SQLAlchemyError
+from utils import has_meaningful_content
 
 load_dotenv()
 
@@ -132,6 +133,9 @@ class TextExtractionQueue:
             text = text.strip()
             if not text:
                 return None, f"No text content found in PDF ({len(reader.pages)} pages scanned)"
+
+            if not has_meaningful_content(text):
+                return None, "PDF content appears to be empty or contain no meaningful text"
 
             logger.info("Extracted text from %d/%d pages", pages_with_text, len(reader.pages))
             return text, None

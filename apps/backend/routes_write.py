@@ -5,6 +5,7 @@ from database import db
 from flask import Blueprint, jsonify, request
 from models import FileSystemItem, User
 from sqlalchemy.exc import IntegrityError
+from utils import sanitize_filename, validate_filename
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,20 @@ def create_filesystem_item():
         if data["type"] not in ["folder", "file"]:
             return jsonify({"error": "Type must be either folder or file"}), 400
 
+        sanitized_name = sanitize_filename(data["name"])
+        is_valid, error_msg = validate_filename(sanitized_name)
+        if not is_valid:
+            return jsonify({"error": f"Invalid name: {error_msg}"}), 400
+
+        if data["type"] == "file":
+            if not sanitized_name.lower().endswith('.pdf'):
+                sanitized_name = f"{sanitized_name}.pdf"
+        elif data["type"] == "folder":
+            if '.' in sanitized_name and sanitized_name.rsplit('.', 1)[1]:
+                return jsonify({"error": "Folders cannot have file extensions"}), 400
+
         existing_item = FileSystemItem.query.filter_by(
-            name=data["name"], parent_id=data.get("parent_id"), owner_id=user.id
+            name=sanitized_name, parent_id=data.get("parent_id"), owner_id=user.id
         ).first()
 
         if existing_item:
@@ -35,7 +48,7 @@ def create_filesystem_item():
             )
 
         item = FileSystemItem(
-            name=data["name"],
+            name=sanitized_name,
             type=data["type"],
             parent_id=data.get("parent_id"),
             owner_id=user.id,

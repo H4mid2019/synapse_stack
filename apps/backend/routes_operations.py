@@ -25,6 +25,7 @@ except ImportError:
 from auth import get_or_create_user, requires_auth
 from database import db
 from models import FileSystemItem, User
+from utils import sanitize_filename, validate_filename, clean_pdf_filename, has_meaningful_content, is_safe_path
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +123,23 @@ def update_filesystem_item(item_id):
             return jsonify({"error": "No data provided"}), 400
 
         if "name" in data:
+            new_name = sanitize_filename(data["name"])
+            is_valid, error_msg = validate_filename(new_name)
+            if not is_valid:
+                return jsonify({"error": f"Invalid filename: {error_msg}"}), 400
+            
+            if item.type == "file":
+                if not new_name.lower().endswith('.pdf'):
+                    return jsonify({"error": "Files must have .pdf extension"}), 400
+                if not new_name.lower().endswith('.pdf'):
+                    new_name = f"{new_name}.pdf"
+            elif item.type == "folder":
+                if '.' in new_name and new_name.rsplit('.', 1)[1]:
+                    return jsonify({"error": "Folders cannot have file extensions"}), 400
+
+            # Check for existing item with same name
             existing_item = FileSystemItem.query.filter(
-                FileSystemItem.name == data["name"],
+                FileSystemItem.name == new_name,
                 FileSystemItem.parent_id == item.parent_id,
                 FileSystemItem.owner_id == user.id,
                 FileSystemItem.id != item_id,
@@ -135,7 +151,7 @@ def update_filesystem_item(item_id):
                     400,
                 )
 
-            item.name = data["name"]
+            item.name = new_name
 
         if "parent_id" in data:
             item.parent_id = data["parent_id"]
@@ -170,21 +186,31 @@ def delete_filesystem_item(item_id):
         if not item:
             return jsonify({"error": "Item not found"}), 404
 
+        item_name = item.name  # Store name before deletion
+
         if item.type == "file":
             file_path = get_file_path(item_id, item.name)
             if USE_GCS:
-                blob = bucket.blob(file_path)
-                if blob.exists():
-                    blob.delete()
-                    logger.info("Deleted file from GCS: %s", file_path)
-                else:
-                    logger.warning("File not found in GCS: %s", file_path)
+                try:
+                    blob = bucket.blob(file_path)
+                    if blob.exists():
+                        blob.delete()
+                        logger.info("Deleted file from GCS: %s", file_path)
+                    else:
+                        logger.warning("File not found in GCS during deletion: %s", file_path)
+                except Exception as e:
+                    logger.error("Error deleting file from GCS %s: %s", file_path, str(e))
+                    # Continue with database deletion - orphaned file will be logged
             else:
                 if os.path.exists(file_path):
-                    os.remove(file_path)
-                    logger.info("Deleted file from local storage: %s", file_path)
+                    try:
+                        os.remove(file_path)
+                        logger.info("Deleted file from local storage: %s", file_path)
+                    except Exception as e:
+                        logger.error("Error deleting file from local storage %s: %s", file_path, str(e))
+                        # Continue with database deletion - orphaned file will be logged
                 else:
-                    logger.warning("File not found on disk: %s", file_path)
+                    logger.warning("File not found on disk during deletion: %s", file_path)
 
         if item.type == "folder":
 
@@ -192,20 +218,26 @@ def delete_filesystem_item(item_id):
                 children = FileSystemItem.query.filter_by(parent_id=parent_id).all()
                 for child in children:
                     if child.type == "file":
-                        file_path = get_file_path(child.id, child.name)
+                        child_file_path = get_file_path(child.id, child.name)
                         if USE_GCS:
-                            blob = bucket.blob(file_path)
-                            if blob.exists():
-                                blob.delete()
-                                logger.info("Deleted child file from GCS: %s", file_path)
-                            else:
-                                logger.warning("Child file not found in GCS: %s", file_path)
+                            try:
+                                blob = bucket.blob(child_file_path)
+                                if blob.exists():
+                                    blob.delete()
+                                    logger.info("Deleted child file from GCS: %s", child_file_path)
+                                else:
+                                    logger.warning("Child file not found in GCS during deletion: %s", child_file_path)
+                            except Exception as e:
+                                logger.error("Error deleting child file from GCS %s: %s", child_file_path, str(e))
                         else:
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
-                                logger.info("Deleted child file from local storage: %s", file_path)
+                            if os.path.exists(child_file_path):
+                                try:
+                                    os.remove(child_file_path)
+                                    logger.info("Deleted child file from local storage: %s", child_file_path)
+                                except Exception as e:
+                                    logger.error("Error deleting child file from local storage %s: %s", child_file_path, str(e))
                             else:
-                                logger.warning("Child file not found on disk: %s", file_path)
+                                logger.warning("Child file not found on disk during deletion: %s", child_file_path)
                     elif child.type == "folder":
                         delete_children(child.id)
                     db.session.delete(child)
@@ -215,7 +247,7 @@ def delete_filesystem_item(item_id):
         db.session.delete(item)
         db.session.commit()
 
-        logger.info("Deleted filesystem item: %s", item.name)
+        logger.info("Deleted filesystem item: %s (ID: %s)", item_name, item_id)
         return jsonify({"message": "Item deleted successfully"}), 200
 
     except Exception as e:
@@ -243,10 +275,14 @@ def upload_file():
             return jsonify({"error": "Only PDF files are allowed"}), 400
 
         parent_id = request.form.get("parent_id", type=int)
-        filename = secure_filename(file.filename)
-
-        if not filename.lower().endswith(".pdf"):
-            filename = filename + ".pdf" if filename else "document.pdf"
+        
+        # Use enhanced filename cleaning and validation
+        filename = clean_pdf_filename(file.filename)
+        
+        # Validate the cleaned filename
+        is_valid, error_msg = validate_filename(filename)
+        if not is_valid:
+            return jsonify({"error": f"Invalid filename: {error_msg}"}), 400
 
         existing_item = FileSystemItem.query.filter_by(name=filename, parent_id=parent_id, owner_id=user.id).first()
 
@@ -265,6 +301,20 @@ def upload_file():
         pdf_valid, pdf_message = validate_pdf_content(file_content)
         if not pdf_valid:
             return jsonify({"error": pdf_message}), 400
+
+        # Enhanced PDF content validation - check for meaningful content
+        if HAS_PYPDF2 and file_content.startswith(b"%PDF-"):
+            try:
+                pdf_file = BytesIO(file_content)
+                reader = PdfReader(pdf_file)
+                text_content = ""
+                for page in reader.pages:
+                    text_content += page.extract_text() + "\n"
+                
+                if not has_meaningful_content(text_content):
+                    return jsonify({"error": "PDF file appears to be empty or contain no meaningful content"}), 400
+            except Exception as e:
+                logger.warning("Could not extract text for content validation: %s", str(e))
 
         file_size = len(file_content)
 
@@ -287,6 +337,16 @@ def upload_file():
             blob.upload_from_string(file_content, content_type=item.mime_type)
             logger.info("Uploaded file to GCS: %s", file_path)
         else:
+            # Ensure directory exists and path is safe
+            if not is_safe_path(file_path):
+                db.session.rollback()
+                return jsonify({"error": "Invalid file path"}), 400
+            
+            # Create directory if needed
+            dir_path = os.path.dirname(file_path)
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+            
             with open(file_path, "wb") as f:
                 f.write(file_content)
             logger.info("Uploaded file to local storage: %s", file_path)

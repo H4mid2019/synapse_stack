@@ -4,6 +4,7 @@ import { filesystemApi } from '../services/api';
 import { toast } from 'react-toastify';
 import { itemsActions } from '../store/itemsStore';
 import { SearchBar } from './SearchBar';
+import { validateFilename, sanitizeFilename, truncateFilename } from '../utils/validation';
 
 interface FileExplorerProps {
   items: FileSystemItem[];
@@ -34,11 +35,26 @@ export const FileExplorer = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
+    const trimmedName = newFolderName.trim();
+    if (!trimmedName) return;
+
+    const [isValid, errorMessage] = validateFilename(trimmedName);
+    if (!isValid) {
+      toast.error(`Invalid folder name: ${errorMessage}`);
+      return;
+    }
+
+    let sanitizedName = sanitizeFilename(trimmedName);
+    sanitizedName = truncateFilename(sanitizedName);
+
+    if (sanitizedName.includes('.') && sanitizedName.split('.').pop()?.length) {
+      toast.error('Folders cannot have file extensions');
+      return;
+    }
 
     try {
       const newFolder = await filesystemApi.create({
-        name: newFolderName.trim(),
+        name: sanitizedName,
         type: 'folder',
         parent_id: currentFolderId,
       });
@@ -63,12 +79,39 @@ export const FileExplorer = ({
 
     setIsUploading(true);
     let successCount = 0;
+    let errorCount = 0;
 
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        
+        // Validate file name
+        const [isValid, errorMessage] = validateFilename(file.name);
+        if (!isValid) {
+          toast.error(`${file.name}: Invalid filename - ${errorMessage}`);
+          errorCount++;
+          continue;
+        }
+
+        // Check file type (must be PDF)
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          toast.error(`${file.name}: Only PDF files are allowed`);
+          errorCount++;
+          continue;
+        }
+
+        // Sanitize and truncate filename if needed
+        let sanitizedName = sanitizeFilename(file.name);
+        sanitizedName = truncateFilename(sanitizedName);
+        
+        // Update the file name if it was sanitized
+        const sanitizedFile = new File([file], sanitizedName, {
+          type: file.type,
+          lastModified: file.lastModified,
+        });
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', sanitizedFile);
         if (currentFolderId !== null) {
           formData.append('parent_id', currentFolderId.toString());
         }
@@ -82,6 +125,7 @@ export const FileExplorer = ({
             (err as { response?: { data?: { error?: string } } })?.response
               ?.data?.error || 'Failed to upload file';
           toast.error(`${file.name}: ${errorMessage}`);
+          errorCount++;
         }
       }
 
@@ -89,6 +133,10 @@ export const FileExplorer = ({
         toast.success(
           `Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`
         );
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`);
       }
 
       if (fileInputRef.current) {
@@ -127,14 +175,44 @@ export const FileExplorer = ({
   };
 
   const handleRename = async (itemId: number) => {
-    if (!renameValue.trim()) {
+    const trimmedName = renameValue.trim();
+    if (!trimmedName) {
       setRenamingItemId(null);
       return;
     }
 
+    // Validate the new name
+    const [isValid, errorMessage] = validateFilename(trimmedName);
+    if (!isValid) {
+      toast.error(`Invalid name: ${errorMessage}`);
+      return;
+    }
+
+    // Sanitize and truncate if needed
+    let sanitizedName = sanitizeFilename(trimmedName);
+    sanitizedName = truncateFilename(sanitizedName);
+
+    // Find the item to check its type
+    const item = [...items].find(i => i.id === itemId);
+    if (item) {
+      if (item.type === 'file') {
+        // Files must have .pdf extension
+        if (!sanitizedName.toLowerCase().endsWith('.pdf')) {
+          toast.error('Files must have .pdf extension');
+          return;
+        }
+      } else if (item.type === 'folder') {
+        // Folders should not have file extensions
+        if (sanitizedName.includes('.') && sanitizedName.split('.').pop()?.length) {
+          toast.error('Folders cannot have file extensions');
+          return;
+        }
+      }
+    }
+
     try {
       const updatedItem = await filesystemApi.update(itemId, {
-        name: renameValue.trim(),
+        name: sanitizedName,
       });
       itemsActions.updateItem(updatedItem);
       setRenamingItemId(null);
