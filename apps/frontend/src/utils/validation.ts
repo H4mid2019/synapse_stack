@@ -3,6 +3,7 @@
  */
 
 const MAX_FILENAME_LENGTH = 255;
+// eslint-disable-next-line no-control-regex
 const DANGEROUS_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 const WINDOWS_RESERVED_NAMES = new Set([
   'con',
@@ -81,11 +82,11 @@ export function sanitizeFilename(filename: string): string {
     sanitized = parts.join('.');
   }
 
-  sanitized = sanitized.replace(/^[\.\s]+|[\.\s]+$/g, '');
+  sanitized = sanitized.replace(/^[.\s]+|[.\s]+$/g, '');
 
   if (!sanitized || sanitized.startsWith('.')) {
     const ext = parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-    sanitized = `file${ext}` || 'unnamed_file';
+    sanitized = ext ? `file${ext}` : 'unnamed_file';
   }
 
   return sanitized;
@@ -110,7 +111,8 @@ export function truncateFilename(
   const availableBytes = maxLength - extBytes - 3;
 
   if (availableBytes <= 0) {
-    return `file${ext.substring(0, maxLength - 4)}` || 'file';
+    const truncatedExt = ext.substring(0, maxLength - 4);
+    return truncatedExt ? `file${truncatedExt}` : 'file';
   }
 
   let baseName = parts.slice(0, -1).join('.');
