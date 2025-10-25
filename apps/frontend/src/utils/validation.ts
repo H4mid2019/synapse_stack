@@ -5,9 +5,28 @@
 const MAX_FILENAME_LENGTH = 255;
 const DANGEROUS_CHARS = /[<>:"/\\|?*\x00-\x1f]/g;
 const WINDOWS_RESERVED_NAMES = new Set([
-  'con', 'prn', 'aux', 'nul',
-  'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
-  'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+  'con',
+  'prn',
+  'aux',
+  'nul',
+  'com1',
+  'com2',
+  'com3',
+  'com4',
+  'com5',
+  'com6',
+  'com7',
+  'com8',
+  'com9',
+  'lpt1',
+  'lpt2',
+  'lpt3',
+  'lpt4',
+  'lpt5',
+  'lpt6',
+  'lpt7',
+  'lpt8',
+  'lpt9',
 ]);
 
 export function validateFilename(filename: string): [boolean, string | null] {
@@ -31,13 +50,18 @@ export function validateFilename(filename: string): [boolean, string | null] {
     return [false, 'Filename contains invalid characters (< > : " / \\ | ? *)'];
   }
 
-  const nameWithoutExt = filename.split('.').slice(0, -1).join('.') || filename.split('.')[0];
+  const nameWithoutExt =
+    filename.split('.').slice(0, -1).join('.') || filename.split('.')[0];
   if (WINDOWS_RESERVED_NAMES.has(nameWithoutExt.toLowerCase())) {
     return [false, 'Filename uses a reserved system name'];
   }
 
-  if (filename.startsWith('.') || filename.endsWith('.') || filename.startsWith(' ')) {
-    return [false, 'Filename cannot start with \'.\' or \' \''];
+  if (
+    filename.startsWith('.') ||
+    filename.endsWith('.') ||
+    filename.startsWith(' ')
+  ) {
+    return [false, "Filename cannot start with '.' or ' '"];
   }
 
   return [true, null];
@@ -67,7 +91,10 @@ export function sanitizeFilename(filename: string): string {
   return sanitized;
 }
 
-export function truncateFilename(filename: string, maxLength: number = MAX_FILENAME_LENGTH): string {
+export function truncateFilename(
+  filename: string,
+  maxLength: number = MAX_FILENAME_LENGTH
+): string {
   const encodedLength = new TextEncoder().encode(filename).length;
   if (encodedLength <= maxLength) {
     return filename;
@@ -87,7 +114,10 @@ export function truncateFilename(filename: string, maxLength: number = MAX_FILEN
   }
 
   let baseName = parts.slice(0, -1).join('.');
-  while (new TextEncoder().encode(baseName).length > availableBytes && baseName.length > 1) {
+  while (
+    new TextEncoder().encode(baseName).length > availableBytes &&
+    baseName.length > 1
+  ) {
     baseName = baseName.substring(0, baseName.length - 1);
   }
 

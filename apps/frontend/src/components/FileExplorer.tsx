@@ -4,7 +4,11 @@ import { filesystemApi } from '../services/api';
 import { toast } from 'react-toastify';
 import { itemsActions } from '../store/itemsStore';
 import { SearchBar } from './SearchBar';
-import { validateFilename, sanitizeFilename, truncateFilename } from '../utils/validation';
+import {
+  validateFilename,
+  sanitizeFilename,
+  truncateFilename,
+} from '../utils/validation';
 
 interface FileExplorerProps {
   items: FileSystemItem[];
@@ -84,7 +88,7 @@ export const FileExplorer = ({
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
+
         // Validate file name
         const [isValid, errorMessage] = validateFilename(file.name);
         if (!isValid) {
@@ -103,7 +107,7 @@ export const FileExplorer = ({
         // Sanitize and truncate filename if needed
         let sanitizedName = sanitizeFilename(file.name);
         sanitizedName = truncateFilename(sanitizedName);
-        
+
         // Update the file name if it was sanitized
         const sanitizedFile = new File([file], sanitizedName, {
           type: file.type,
@@ -134,9 +138,11 @@ export const FileExplorer = ({
           `Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`
         );
       }
-      
+
       if (errorCount > 0) {
-        toast.error(`Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`);
+        toast.error(
+          `Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`
+        );
       }
 
       if (fileInputRef.current) {
@@ -193,7 +199,7 @@ export const FileExplorer = ({
     sanitizedName = truncateFilename(sanitizedName);
 
     // Find the item to check its type
-    const item = [...items].find(i => i.id === itemId);
+    const item = [...items].find((i) => i.id === itemId);
     if (item) {
       if (item.type === 'file') {
         // Files must have .pdf extension
@@ -203,7 +209,10 @@ export const FileExplorer = ({
         }
       } else if (item.type === 'folder') {
         // Folders should not have file extensions
-        if (sanitizedName.includes('.') && sanitizedName.split('.').pop()?.length) {
+        if (
+          sanitizedName.includes('.') &&
+          sanitizedName.split('.').pop()?.length
+        ) {
           toast.error('Folders cannot have file extensions');
           return;
         }
