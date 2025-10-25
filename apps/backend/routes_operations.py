@@ -5,7 +5,6 @@ from io import BytesIO
 import requests
 from flask import Blueprint, jsonify, request, send_file
 from sqlalchemy.exc import IntegrityError
-from werkzeug.utils import secure_filename
 
 try:
     from google.cloud import storage
@@ -32,7 +31,7 @@ except ImportError:
 from auth import get_or_create_user, requires_auth
 from database import db
 from models import FileSystemItem, User
-from utils import sanitize_filename, validate_filename, clean_pdf_filename, has_meaningful_content, is_safe_path
+from utils import clean_pdf_filename, has_meaningful_content, is_safe_path, sanitize_filename, validate_filename
 
 logger = logging.getLogger(__name__)
 
@@ -134,14 +133,14 @@ def update_filesystem_item(item_id):
             is_valid, error_msg = validate_filename(new_name)
             if not is_valid:
                 return jsonify({"error": f"Invalid filename: {error_msg}"}), 400
-            
+
             if item.type == "file":
-                if not new_name.lower().endswith('.pdf'):
+                if not new_name.lower().endswith(".pdf"):
                     return jsonify({"error": "Files must have .pdf extension"}), 400
-                if not new_name.lower().endswith('.pdf'):
+                if not new_name.lower().endswith(".pdf"):
                     new_name = f"{new_name}.pdf"
             elif item.type == "folder":
-                if '.' in new_name and new_name.rsplit('.', 1)[1]:
+                if "." in new_name and new_name.rsplit(".", 1)[1]:
                     return jsonify({"error": "Folders cannot have file extensions"}), 400
 
             # Check for existing item with same name
@@ -242,7 +241,9 @@ def delete_filesystem_item(item_id):
                                     os.remove(child_file_path)
                                     logger.info("Deleted child file from local storage: %s", child_file_path)
                                 except Exception as e:
-                                    logger.error("Error deleting child file from local storage %s: %s", child_file_path, str(e))
+                                    logger.error(
+                                        "Error deleting child file from local storage %s: %s", child_file_path, str(e)
+                                    )
                             else:
                                 logger.warning("Child file not found on disk during deletion: %s", child_file_path)
                     elif child.type == "folder":
@@ -282,10 +283,10 @@ def upload_file():
             return jsonify({"error": "Only PDF files are allowed"}), 400
 
         parent_id = request.form.get("parent_id", type=int)
-        
+
         # Use enhanced filename cleaning and validation
         filename = clean_pdf_filename(file.filename)
-        
+
         # Validate the cleaned filename
         is_valid, error_msg = validate_filename(filename)
         if not is_valid:
@@ -317,7 +318,7 @@ def upload_file():
                 text_content = ""
                 for page in reader.pages:
                     text_content += page.extract_text() + "\n"
-                
+
                 if not has_meaningful_content(text_content):
                     return jsonify({"error": "PDF file appears to be empty or contain no meaningful content"}), 400
             except Exception as e:
@@ -348,12 +349,12 @@ def upload_file():
             if not is_safe_path(file_path):
                 db.session.rollback()
                 return jsonify({"error": "Invalid file path"}), 400
-            
+
             # Create directory if needed
             dir_path = os.path.dirname(file_path)
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path)
-            
+
             with open(file_path, "wb") as f:
                 f.write(file_content)
             logger.info("Uploaded file to local storage: %s", file_path)

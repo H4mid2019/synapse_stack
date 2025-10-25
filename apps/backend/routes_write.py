@@ -31,10 +31,10 @@ def create_filesystem_item():
             return jsonify({"error": f"Invalid name: {error_msg}"}), 400
 
         if data["type"] == "file":
-            if not sanitized_name.lower().endswith('.pdf'):
+            if not sanitized_name.lower().endswith(".pdf"):
                 sanitized_name = f"{sanitized_name}.pdf"
         elif data["type"] == "folder":
-            if '.' in sanitized_name and sanitized_name.rsplit('.', 1)[1]:
+            if "." in sanitized_name and sanitized_name.rsplit(".", 1)[1]:
                 return jsonify({"error": "Folders cannot have file extensions"}), 400
 
         existing_item = FileSystemItem.query.filter_by(
