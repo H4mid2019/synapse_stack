@@ -4,9 +4,16 @@ from io import BytesIO
 
 import requests
 from flask import Blueprint, jsonify, request, send_file
-from google.cloud import storage
 from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
+
+try:
+    from google.cloud import storage
+
+    HAS_GCS = True
+except ImportError:
+    HAS_GCS = False
+    storage = None
 
 try:
     import magic

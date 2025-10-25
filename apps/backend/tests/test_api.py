@@ -44,7 +44,7 @@ class TestFileSystemAPI:
 
         assert response.status_code == 201
         response_data = json.loads(response.data)
-        assert response_data["name"] == "New Folder"
+        assert response_data["name"] == "New_Folder"  # Sanitized name
         assert response_data["type"] == "folder"
         assert "id" in response_data
 
@@ -66,7 +66,7 @@ class TestFileSystemAPI:
 
         assert response.status_code == 200
         response_data = json.loads(response.data)
-        assert response_data["name"] == "Updated Folder"
+        assert response_data["name"] == "Updated_Folder"  # Sanitized name
 
     def test_update_item_not_found(self, client):
         data = {"name": "Updated Folder"}
