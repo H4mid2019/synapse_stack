@@ -10,6 +10,7 @@ from database import db, migrate
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 
@@ -48,6 +49,14 @@ def create_app(app_type="read"):
     config = APP_CONFIGS[app_type]
 
     app = Flask(__name__)
+
+    # These processes always sit behind the nginx in supervisord.conf, which
+    # proxies over loopback. Without this, request.remote_addr is 127.0.0.1 for
+    # every caller and the real client IP is unrecoverable, so anything built on
+    # it (rate limiting, abuse logging, audit trails) is silently wrong. One
+    # proxy hop, so the counts are 1.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
     database_uri = os.getenv("DATABASE_URL", "sqlite:///app.db")
 
