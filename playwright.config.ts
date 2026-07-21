@@ -37,7 +37,12 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     env: {
+      // Swaps the Auth0 login redirect, which cannot run unattended, for a
+      // provider that fetches a real token from the local issuer. The backend
+      // still verifies every request; nothing here turns authentication off.
       VITE_TEST_MODE: 'true',
+      VITE_TEST_ISSUER_URL: 'http://localhost:9999',
+      VITE_TEST_SUBJECT: 'auth0|e2e',
     },
   },
 });

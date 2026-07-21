@@ -33,7 +33,10 @@ jobs:
         working-directory: ./apps/backend
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 black isort
+          # From requirements.txt, where these are pinned. Installing them
+          # unpinned meant a new black release could fail the build with no
+          # change to the code.
+          pip install -r requirements.txt
 
       - name: Run JavaScript/TypeScript linter
         run: npm run lint
@@ -180,24 +183,40 @@ jobs:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           SECRET_KEY: test-secret-key
           FLASK_ENV: development
+          # The services run with authentication fully enabled and are pointed at
+          # a local issuer instead of Auth0. Nothing here disables verification.
+          AUTH0_DOMAIN: localhost:9999
+          AUTH0_AUDIENCE: synapse-api
+          AUTH0_ISSUER: http://localhost:9999/
+          AUTH0_JWKS_URL: http://localhost:9999/.well-known/jwks.json
+          AUTH0_USERINFO_URL: http://localhost:9999/userinfo
         run: |
+          # Local token issuer, so the real JWT verification path is exercised
+          python scripts/fake_auth0.py --port 9999 --audience synapse-api > /tmp/auth0.log 2>&1 &
+          echo $! > /tmp/auth0.pid
+          for i in $(seq 1 20); do
+            curl -fs http://localhost:9999/.well-known/jwks.json > /dev/null && break
+            sleep 1
+          done
+          echo "[OK] local issuer serving JWKS"
+
           # Start read service instance 1
-          TEST_MODE=true PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
+          PORT=6001 python run_bjoern.py read > /tmp/read1.log 2>&1 &
           echo $! > /tmp/read1.pid
           sleep 2
 
           # Start read service instance 2
-          TEST_MODE=true PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
+          PORT=6011 python run_bjoern.py read > /tmp/read2.log 2>&1 &
           echo $! > /tmp/read2.pid
           sleep 2
 
           # Start write service
-          TEST_MODE=true PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
+          PORT=6002 python run_bjoern.py write > /tmp/write.log 2>&1 &
           echo $! > /tmp/write.pid
           sleep 2
 
           # Start operations service
-          TEST_MODE=true PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
+          PORT=6003 python run_bjoern.py operations > /tmp/operations.log 2>&1 &
           echo $! > /tmp/operations.pid
           sleep 3
 
