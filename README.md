@@ -1,23 +1,30 @@
-# Flask React Monorepo
+# synapse-stack
 
-Full-stack file management system with Flask backend and React frontend in a Turborepo monorepo.
-
-## Online example app
+A file management system: Flask API, React frontend, Auth0 authentication,
+PostgreSQL, deployed as several processes behind nginx.
 
 [synapse-stack.darabi.website](https://synapse-stack.darabi.website/)
 
-## Key Features
+## What this demonstrates
 
-- **PDF File Management** - Upload, organize, and download PDF files
-- **Smart Search** - Search by filename and PDF text content
-- **Automatic Text Extraction** - PDFs are processed automatically for searchable content
-- **Folder Organization** - Create nested folder structures up to 25 levels deep
-- **Real-time Updates** - Instant UI updates using Preact Signals
-- **Multi-Service Architecture** - Scalable microservices design with load balancing
-- **Auth0 Integration** - Secure authentication and authorization
-- **Production Ready** - CI/CD pipeline with automated testing and Docker deployment
+- **Authorization, not just authentication.** Every query is scoped to the
+  calling user. `TestAuthorization` in the backend suite checks that an
+  authenticated user asking for another user's file gets a 404, and that the
+  real owner still gets a 200. Removing `owner_id=user.id` from one lookup makes
+  that test fail with `assert 200 == 404`, which is how the test was verified.
+- **Auth0 JWT verification against JWKS**, with RS256, audience and issuer
+  checks. There is no mode that turns it off. The end to end suite runs a local
+  token issuer (`apps/backend/scripts/fake_auth0.py`) that mints real signed
+  tokens, so the browser tests exercise the same verification code as
+  production instead of stepping over it.
+- **A recursive CTE for folder breadcrumbs**, so building a path is one query
+  regardless of nesting depth rather than one per level.
+- **Offset pagination with a hard cap**, ordered by id so pages are stable.
+- **Multi-process deployment**: read, write and operations run as separate
+  bjoern processes behind nginx, with two read instances.
 
 ## Quick Navigation
+
 
 - [Quick Start](#quick-start) - Get running in 5 minutes
 - [Platform-Specific Setup](#platform-specific-setup) - Windows, Mac, Linux instructions
@@ -103,7 +110,7 @@ SECRET_KEY=your-secret-key-here
 
 ```powershell
 cd apps/backend
-python run_migration.py
+python scripts/run_migration.py
 # Or with Flask CLI (requires FLASK_APP env var):
 $env:FLASK_APP="app_factory:create_app('operations')"; flask db upgrade
 ```
@@ -181,7 +188,7 @@ SECRET_KEY=your-secret-key-here
 
 ```bash
 cd apps/backend
-python run_migration.py
+python scripts/run_migration.py
 # Or with Flask CLI:
 FLASK_APP="app_factory:create_app('operations')" flask db upgrade
 ```
@@ -281,7 +288,7 @@ apps/
   backend/
     app_factory.py       # Creates Flask apps (read/write/operations)
     run_bjoern.py        # Production WSGI server
-    local_proxy.py       # Dev reverse proxy
+    scripts/local_proxy.py       # Dev reverse proxy
     routes_read.py       # GET endpoints
     routes_write.py      # POST endpoints
     routes_operations.py # PUT/DELETE endpoints
@@ -357,7 +364,7 @@ npm run dev          # Start Flask dev server
 npm run test         # Run pytest
 npm run lint         # Run flake8
 npm run format       # Format with black + isort
-python run_migration.py        # Apply migrations
+python scripts/run_migration.py        # Apply migrations
 FLASK_APP="app_factory:create_app('operations')" flask db migrate -m "description"  # Generate migration
 ```
 
@@ -392,7 +399,7 @@ For local E2E testing, you need both backend and frontend running in test mode:
 ```bash
 # Terminal 1: Start backend in test mode
 cd apps/backend
-TEST_MODE=true python start_local_with_extractor.py
+python scripts/start_local_with_extractor.py
 
 # Terminal 2: Start frontend in test mode
 cd apps/frontend
@@ -414,8 +421,11 @@ npm run test:e2e:headed    # See browser
 
 Set environment variables to skip Auth0:
 
-- Backend: `TEST_MODE=true`
-- Frontend: `VITE_TEST_MODE=true`
+- Backend: point it at the local issuer with `AUTH0_JWKS_URL`,
+  `AUTH0_USERINFO_URL`, `AUTH0_ISSUER` and `AUTH0_AUDIENCE`. The backend has no
+  mode that skips verification.
+- Frontend: `VITE_TEST_MODE=true` swaps the Auth0 login redirect, which cannot
+  run unattended, for a provider that fetches a real token from that issuer.
 
 Uses mock user "Test User" instead of real authentication. Playwright sets these automatically.
 
@@ -426,7 +436,6 @@ Uses mock user "Test User" instead of real authentication. Playwright sets these
 ```bash
 SECRET_KEY=your-secret-key-here
 DATABASE_URL=postgresql://user:password@localhost:5432/flask_react_db
-TEST_MODE=false                    # Set to true to bypass Auth0
 AUTH0_DOMAIN=your-tenant.auth0.com
 AUTH0_AUDIENCE=your-api-identifier
 
@@ -443,7 +452,7 @@ GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
 
 ```bash
 VITE_API_URL=http://localhost:5000/api
-VITE_TEST_MODE=false               # Set to true to bypass Auth0
+VITE_TEST_MODE=false               # E2E only: use the local token issuer
 VITE_AUTH0_DOMAIN=your-tenant.auth0.com
 VITE_AUTH0_CLIENT_ID=your-client-id
 VITE_AUTH0_AUDIENCE=your-api-identifier
@@ -485,7 +494,7 @@ Use CockroachDB for production (free tier available):
 4. Run migrations:
    ```bash
    python add_search_columns.py  # Adds search columns (run once)
-   python run_migration.py        # Run Flask-Migrate migrations
+   python scripts/run_migration.py        # Run Flask-Migrate migrations
    ```
 
 See `docs_local/COCKROACHDB_SETUP.md` for details.
@@ -557,7 +566,8 @@ Required secrets:
 
 **Auth0 errors:**
 
-- Set TEST_MODE=true to bypass authentication during development
+- For end to end runs, start `apps/backend/scripts/fake_auth0.py` and point
+  the Auth0 URLs at it. Authentication stays on.
 - Check Auth0 domain and client ID match
 
 ## Documentation
