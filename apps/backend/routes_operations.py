@@ -81,8 +81,6 @@ def validate_file_size(file_content):
     return True, "File size OK"
 
 
-TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
-
 # Text extraction service URL (different in Docker vs local)
 TEXT_EXTRACTOR_URL = os.getenv("TEXT_EXTRACTOR_URL", "http://localhost:6004")
 
@@ -586,57 +584,3 @@ def trigger_text_extraction(item_id):
 @operations_bp.route("/health", methods=["GET"])
 def health_check():
     return jsonify({"status": "healthy"}), 200
-
-
-if TEST_MODE:
-
-    @operations_bp.route("/test/reset-database", methods=["POST"])
-    def reset_database():
-        try:
-            logger.info("Resetting database for tests...")
-
-            db.drop_all()
-            logger.info("Dropped all tables")
-
-            db.create_all()
-            logger.info("Created all tables")
-
-            test_user = User(auth0_id="test|12345", email="test@example.com", name="Test User")
-            db.session.add(test_user)
-            db.session.commit()
-            logger.info("Created test user (ID: %d)", test_user.id)
-
-            return (
-                jsonify(
-                    {
-                        "message": "Database reset successful",
-                        "test_user_id": test_user.id,
-                    }
-                ),
-                200,
-            )
-
-        except Exception as e:
-            logger.error("Error resetting database: %s", str(e))
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-
-    @operations_bp.route("/test/cleanup-database", methods=["POST"])
-    def cleanup_database():
-        try:
-            logger.info("Cleaning up test database...")
-
-            FileSystemItem.query.delete()
-            logger.info("Deleted all filesystem items")
-
-            User.query.filter(User.auth0_id != "test|12345").delete()
-            logger.info("Deleted non-test users")
-
-            db.session.commit()
-
-            return jsonify({"message": "Database cleanup successful"}), 200
-
-        except Exception as e:
-            logger.error("Error cleaning database: %s", str(e))
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500

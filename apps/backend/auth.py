@@ -11,14 +11,22 @@ from jose import jwt
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 API_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 ALGORITHMS = ["RS256"]
-TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
-FLASK_ENV = os.getenv("FLASK_ENV", "development")
-TEST_ALLOWED_IPS = ["127.0.0.1", "localhost", "::1"]
+AUTH0_TIMEOUT = float(os.getenv("AUTH0_TIMEOUT", "5"))
 
-if TEST_MODE and FLASK_ENV == "production":
-    raise RuntimeError(
-        "TEST_MODE cannot be enabled in production environment. " "Set FLASK_ENV=development or disable TEST_MODE."
-    )
+# The two Auth0 endpoints are overridable so the end to end suite can point them
+# at a local issuer. That is what replaced TEST_MODE: instead of switching
+# verification off, the tests bring their own issuer and the real verification
+# path runs unchanged against it.
+AUTH0_JWKS_URL = os.getenv("AUTH0_JWKS_URL") or f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+AUTH0_USERINFO_URL = os.getenv("AUTH0_USERINFO_URL") or f"https://{AUTH0_DOMAIN}/userinfo"
+AUTH0_ISSUER = os.getenv("AUTH0_ISSUER") or f"https://{AUTH0_DOMAIN}/"
+
+# There is deliberately no test or development mode in this module. An earlier
+# version skipped verification entirely when TEST_MODE was set, guarded by a
+# check that request.remote_addr was localhost. That guard did not hold: nginx
+# proxies to these processes over loopback from inside the same container, so
+# every request arrived with remote_addr 127.0.0.1 and the check passed for
+# anyone on the internet.
 
 
 class AuthError(Exception):
@@ -68,7 +76,11 @@ def get_token_auth_header():
 
 def verify_decode_jwt(token):
     """Verifies and decodes JWT token from Auth0"""
-    jsonurl = urlopen(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json")
+    # Timeout is not optional. This runs on every authenticated request, and
+    # urlopen without one waits indefinitely, so a slow Auth0 or a bad
+    # AUTH0_DOMAIN stops being an error and becomes a hang that occupies the
+    # worker process until something else kills it.
+    jsonurl = urlopen(AUTH0_JWKS_URL, timeout=AUTH0_TIMEOUT)
     jwks = json.loads(jsonurl.read())
 
     try:
@@ -102,7 +114,7 @@ def verify_decode_jwt(token):
             # Decode with or without audience based on whether API_AUDIENCE is set
             decode_options = {
                 "algorithms": ALGORITHMS,
-                "issuer": f"https://{AUTH0_DOMAIN}/",
+                "issuer": AUTH0_ISSUER,
             }
             if API_AUDIENCE:
                 decode_options["audience"] = API_AUDIENCE
@@ -136,24 +148,6 @@ def requires_auth(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        if TEST_MODE:
-            client_ip = request.remote_addr
-            if client_ip not in TEST_ALLOWED_IPS:
-                return (
-                    jsonify(
-                        {
-                            "code": "forbidden",
-                            "description": f"Test mode only allowed from localhost. Your IP: {client_ip}",
-                        }
-                    ),
-                    403,
-                )
-
-            g.current_user_auth0_id = "test|12345"
-            g.current_user_email = "test@example.com"
-            g.current_user_name = "Test User"
-            return f(*args, **kwargs)
-
         try:
             token = get_token_auth_header()
             payload = verify_decode_jwt(token)
@@ -180,11 +174,10 @@ def get_or_create_user(db, User):
         # Get user info from Auth0 userinfo endpoint
         try:
             token = get_token_auth_header()
-            userinfo_url = f"https://{AUTH0_DOMAIN}/userinfo"
-            req = Request(userinfo_url)
+            req = Request(AUTH0_USERINFO_URL)
             req.add_header("Authorization", f"Bearer {token}")
 
-            userinfo_response = urlopen(req)
+            userinfo_response = urlopen(req, timeout=AUTH0_TIMEOUT)
             userinfo = json.loads(userinfo_response.read())
 
             email = userinfo.get("email")
