@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "python start_dev_simple.py",
+    "dev": "python scripts/start_dev_simple.py",
     "dev:extractor": "python text_extractor.py",
     "test": "python -m pytest tests/ -v",
     "lint": "python -m flake8 . --exclude=.venv,migrations,__pycache__ --max-line-length=120",
