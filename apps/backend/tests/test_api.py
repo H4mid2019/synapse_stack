@@ -159,3 +159,98 @@ class TestFileSystemAPI:
             None,
         )
         assert found_item is not None
+
+
+class TestAuthentication:
+    """Requests without a valid credential must not reach any data."""
+
+    def test_anonymous_request_is_rejected(self, anonymous_client):
+        response = anonymous_client.get("/api/filesystem")
+        assert response.status_code == 401
+
+    def test_garbage_token_is_rejected(self, anonymous_client):
+        response = anonymous_client.get("/api/filesystem", headers={"Authorization": "Bearer not-a-real-token"})
+        assert response.status_code == 401
+
+    def test_non_bearer_scheme_is_rejected(self, anonymous_client):
+        response = anonymous_client.get("/api/filesystem", headers={"Authorization": "Basic dXNlcjpwYXNz"})
+        assert response.status_code == 401
+
+    def test_health_needs_no_credential(self, anonymous_client):
+        """The load balancer has no token. Health must stay open."""
+        assert anonymous_client.get("/api/health").status_code == 200
+
+
+class TestAuthorization:
+    """Authentication says who you are. These check what you may reach.
+
+    The interesting failure is not the anonymous request, it is the fully
+    authenticated user reaching for somebody else's row.
+    """
+
+    def test_cannot_read_another_users_item(self, client, other_users_item):
+        response = client.get(f"/api/filesystem/{other_users_item.id}")
+        assert response.status_code == 404
+
+    def test_cannot_list_another_users_folder_contents(self, client, other_users_item):
+        response = client.get(f"/api/filesystem?parent_id={other_users_item.id}")
+        assert response.status_code in (200, 404)
+        if response.status_code == 200:
+            assert json.loads(response.data)["items"] == []
+
+    def test_cannot_update_another_users_item(self, client, other_users_item):
+        response = client.put(
+            f"/api/filesystem/{other_users_item.id}",
+            json={"name": "renamed by an outsider"},
+        )
+        assert response.status_code == 404
+
+    def test_cannot_delete_another_users_item(self, client, other_users_item):
+        response = client.delete(f"/api/filesystem/{other_users_item.id}")
+        assert response.status_code == 404
+
+    def test_owner_still_sees_their_own_item(self, other_client, other_users_item):
+        """The mirror of the tests above: the real owner is not locked out."""
+        response = other_client.get(f"/api/filesystem/{other_users_item.id}")
+        assert response.status_code == 200
+        assert json.loads(response.data)["name"] == "Private"
+
+    def test_listing_is_scoped_to_the_caller(self, client, other_client, sample_item):  # noqa: ARG002
+        """Two users, one database, disjoint views."""
+        mine = json.loads(client.get("/api/filesystem").data)["items"]
+        theirs = json.loads(other_client.get("/api/filesystem").data)["items"]
+
+        assert any(item["name"] == "Test Folder" for item in mine)
+        assert all(item["name"] != "Test Folder" for item in theirs)
+
+
+class TestPagination:
+    def test_listing_is_paginated(self, client):
+        response = client.get("/api/filesystem")
+        body = json.loads(response.data)
+        assert {"items", "total", "limit", "offset", "has_more"} <= set(body)
+
+    def test_limit_is_respected(self, client, app):
+        from database import db
+        from models import FileSystemItem, User
+
+        with app.app_context():
+            user = User.query.filter_by(auth0_id="auth0|owner").first()
+            for index in range(12):
+                db.session.add(FileSystemItem(name=f"folder-{index}", type="folder", owner_id=user.id, parent_id=None))
+            db.session.commit()
+
+        body = json.loads(client.get("/api/filesystem?limit=5").data)
+        assert len(body["items"]) == 5
+        assert body["total"] == 12
+        assert body["has_more"] is True
+
+    def test_limit_is_capped(self, client):
+        """A caller must not be able to ask for everything."""
+        body = json.loads(client.get("/api/filesystem?limit=100000").data)
+        assert body["limit"] <= 500
+
+    def test_garbage_limit_falls_back_to_the_default(self, client):
+        body = json.loads(client.get("/api/filesystem?limit=abc&offset=xyz").data)
+        assert body["limit"] == 100
+        assert body["offset"] == 0
