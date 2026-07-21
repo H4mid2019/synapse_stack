@@ -4,6 +4,7 @@ from auth import get_or_create_user, requires_auth
 from database import db
 from flask import Blueprint, jsonify, request
 from models import FileSystemItem, User
+from pagination import paginate, pagination_args
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
@@ -18,14 +19,13 @@ def get_filesystem_items():
         user = get_or_create_user(db, User)
         parent_id = request.args.get("parent_id", default=None, type=int)
 
+        limit, offset = pagination_args()
+
         if parent_id is None:
-            items = FileSystemItem.query.filter_by(parent_id=None, owner_id=user.id).all()
-            return (
-                jsonify({"items": [item.to_dict() for item in items], "breadcrumb": []}),
-                200,
-            )
+            page = paginate(FileSystemItem.query.filter_by(parent_id=None, owner_id=user.id), limit, offset)
+            return jsonify({**page, "breadcrumb": []}), 200
         else:
-            items = FileSystemItem.query.filter_by(parent_id=parent_id, owner_id=user.id).all()
+            page = paginate(FileSystemItem.query.filter_by(parent_id=parent_id, owner_id=user.id), limit, offset)
 
             # Get breadcrumb using single recursive CTE query
             query = text(
@@ -73,15 +73,7 @@ def get_filesystem_items():
                     }
                 )
 
-            return (
-                jsonify(
-                    {
-                        "items": [item.to_dict() for item in items],
-                        "breadcrumb": breadcrumb,
-                    }
-                ),
-                200,
-            )
+            return jsonify({**page, "breadcrumb": breadcrumb}), 200
 
     except Exception as e:
         logger.error("[ERROR] Error fetching filesystem items: %s", str(e))
