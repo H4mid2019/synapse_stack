@@ -1,0 +1,8 @@
+# Test and lint tooling. Kept out of requirements.txt so it is not
+# installed into the production image, which previously shipped pytest,
+# black, flake8 and isort to every running container.
+pytest==8.4.2
+pytest-flask==1.3.0
+flake8==7.1.1
+black==25.9.0
+isort==7.0.0
